@@ -13,7 +13,10 @@ export const POKEMON_TYPE_COLORS = {
   bug: '#8bc34a',
   rock: '#795548',
   ghost: '#673ab7',
-  dragon: '#5c6bc0'
+  dragon: '#5c6bc0',
+  dark: '#5d4037',
+  steel: '#78909c',
+  fairy: '#f48fb1'
 };
 
 export const POKEMON_TYPE_BACKGROUND_COLORS = {
@@ -31,7 +34,10 @@ export const POKEMON_TYPE_BACKGROUND_COLORS = {
   bug: '#f1f8e9',
   rock: '#f5e6d3',
   ghost: '#f3e5f5',
-  dragon: '#f0f3ff'
+  dragon: '#f0f3ff',
+  dark: '#efebe9',
+  steel: '#eceff1',
+  fairy: '#fce4ec'
 };
 
 export function getTypeColor(typeName) {
@@ -43,11 +49,11 @@ export function getTypeBackgroundColor(typeName) {
 }
 
 export function getTypeTextColor(typeName) {
-  const darkTextTypes = ['electric', 'bug', 'ice', 'fighting', 'normal', 'ground'];
+  const darkTextTypes = ['electric', 'bug', 'ice', 'fighting', 'normal', 'ground', 'fairy', 'steel'];
   return darkTextTypes.includes(typeName) ? '#212529' : '#fff';
 }
 
-export const KANTO_TYPES = [
+export const POKEMON_TYPES = [
   'all',
   'normal',
   'fire',
@@ -63,5 +69,8 @@ export const KANTO_TYPES = [
   'bug',
   'rock',
   'ghost',
-  'dragon'
+  'dragon',
+  'dark',
+  'steel',
+  'fairy'
 ];

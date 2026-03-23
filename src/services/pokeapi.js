@@ -1,7 +1,19 @@
 const API_BASE_URL = 'https://pokeapi.co/api/v2';
-const KANTO_LIMIT = 151;
-const kantoListCache = new Map();
+const pokemonListCache = new Map();
 const detailsCache = new Map();
+const regionCache = new Map();
+
+export const REGION_OPTIONS = [
+  { key: 'kanto', label: 'Kanto', generationId: 1 },
+  { key: 'johto', label: 'Johto', generationId: 2 },
+  { key: 'hoenn', label: 'Hoenn', generationId: 3 },
+  { key: 'sinnoh', label: 'Sinnoh', generationId: 4 },
+  { key: 'unova', label: 'Unova', generationId: 5 },
+  { key: 'kalos', label: 'Kalos', generationId: 6 },
+  { key: 'alola', label: 'Alola', generationId: 7 },
+  { key: 'galar', label: 'Galar', generationId: 8 },
+  { key: 'paldea', label: 'Paldea', generationId: 9 }
+];
 
 function capitalize(text) {
   if (!text) {
@@ -13,8 +25,7 @@ function capitalize(text) {
 
 export async function fetchPokemonList(offset = 0, limit = 20) {
   const safeOffset = Math.max(0, offset);
-  const remaining = KANTO_LIMIT - safeOffset;
-  const safeLimit = Math.min(limit, remaining);
+  const safeLimit = Math.max(0, limit);
 
   if (safeLimit <= 0) {
     return [];
@@ -38,8 +49,8 @@ export async function fetchPokemonList(offset = 0, limit = 20) {
 async function fetchPokemonSummary(urlOrId) {
   const key = String(urlOrId);
 
-  if (kantoListCache.has(key)) {
-    return kantoListCache.get(key);
+  if (pokemonListCache.has(key)) {
+    return pokemonListCache.get(key);
   }
 
   const detailsResponse = await fetch(
@@ -63,24 +74,59 @@ async function fetchPokemonSummary(urlOrId) {
     weight: details.weight
   };
 
-  kantoListCache.set(key, summary);
-  kantoListCache.set(String(summary.id), summary);
-  kantoListCache.set(details.name, summary);
+  pokemonListCache.set(key, summary);
+  pokemonListCache.set(String(summary.id), summary);
+  pokemonListCache.set(details.name, summary);
 
   return summary;
 }
 
-export async function fetchAllKantoPokemon() {
-  const response = await fetch(`${API_BASE_URL}/pokemon?limit=${KANTO_LIMIT}&offset=0`);
+export async function fetchPokemonByRegion(regionKey = 'kanto') {
+  const normalizedRegion = String(regionKey).toLowerCase();
+
+  if (regionCache.has(normalizedRegion)) {
+    return regionCache.get(normalizedRegion);
+  }
+
+  const regionOption = REGION_OPTIONS.find((region) => region.key === normalizedRegion);
+
+  if (!regionOption) {
+    throw new Error('Regiao invalida.');
+  }
+
+  const response = await fetch(`${API_BASE_URL}/generation/${regionOption.generationId}`);
 
   if (!response.ok) {
-    throw new Error('Nao foi possivel carregar a lista completa de Pokemon.');
+    throw new Error('Nao foi possivel carregar os Pokemon da regiao selecionada.');
   }
 
   const data = await response.json();
-  const detailed = await Promise.all(data.results.map((item) => fetchPokemonSummary(item.url)));
+  const speciesWithIds = data.pokemon_species.map((species) => ({
+    ...species,
+    id: Number(species.url.split('/').filter(Boolean).pop())
+  }));
 
-  return detailed.sort((a, b) => a.id - b.id);
+  const speciesSortedById = [...speciesWithIds].sort((a, b) => {
+    const idA = a.id;
+    const idB = b.id;
+    return idA - idB;
+  });
+
+  const detailed = await Promise.all(speciesSortedById.map((item) => fetchPokemonSummary(item.id)));
+
+  const sortedData = detailed.sort((a, b) => a.id - b.id);
+  regionCache.set(normalizedRegion, sortedData);
+
+  return sortedData;
+}
+
+export async function fetchAllKantoPokemon() {
+  return fetchPokemonByRegion('kanto');
+}
+
+export async function fetchAllPokemonFromAllRegions() {
+  const allRegions = await Promise.all(REGION_OPTIONS.map((region) => fetchPokemonByRegion(region.key)));
+  return allRegions.flat().sort((a, b) => a.id - b.id);
 }
 
 export async function fetchPokemonDetails(idOrName) {
@@ -104,12 +150,22 @@ export async function fetchPokemonDetails(idOrName) {
     image:
       details.sprites.other['official-artwork'].front_default ||
       details.sprites.front_default,
+    shinyImage:
+      details.sprites.other['official-artwork'].front_shiny ||
+      details.sprites.front_shiny ||
+      details.sprites.other['official-artwork'].front_default ||
+      details.sprites.front_default,
     types: details.types.map((t) => t.type.name),
     abilities: details.abilities.map((a) => capitalize(a.ability.name)),
     stats: details.stats.map((s) => ({
       name: s.stat.name,
       base: s.base_stat
     })),
+    baseExperience: details.base_experience || 0,
+    order: details.order,
+    movesCount: details.moves.length,
+    totalStats: details.stats.reduce((acc, stat) => acc + stat.base_stat, 0),
+    heldItemsCount: details.held_items.length,
     height: details.height,
     weight: details.weight
   };
@@ -129,22 +185,18 @@ export async function searchPokemonByNameOrId(rawQuery) {
 
   const pokemon = await fetchPokemonDetails(normalizedQuery);
 
-  if (pokemon.id > KANTO_LIMIT) {
-    throw new Error('Este Pokemon nao pertence a primeira geracao.');
-  }
-
   return pokemon;
 }
 
-export async function searchPokemonSuggestions(rawQuery) {
+export async function searchPokemonSuggestions(rawQuery, regionKey = 'kanto') {
   const normalizedQuery = rawQuery.trim().toLowerCase();
 
   if (!normalizedQuery || normalizedQuery.length < 2) {
     return [];
   }
 
-  const allPokemon = await fetchAllKantoPokemon();
-  const suggestions = allPokemon
+  const regionPokemon = await fetchPokemonByRegion(regionKey);
+  const suggestions = regionPokemon
     .filter((pokemon) => pokemon.name.toLowerCase().includes(normalizedQuery))
     .slice(0, 8);
 
@@ -178,7 +230,6 @@ export async function fetchEvolutionChainByPokemonId(pokemonId) {
   const details = await Promise.all(uniqueNames.map((name) => fetchPokemonDetails(name)));
 
   return details
-    .filter((pokemon) => pokemon.id <= KANTO_LIMIT)
     .sort((a, b) => a.id - b.id)
     .map((pokemon) => ({
       id: pokemon.id,
@@ -186,5 +237,3 @@ export async function fetchEvolutionChainByPokemonId(pokemonId) {
       image: pokemon.image
     }));
 }
-
-export { KANTO_LIMIT };

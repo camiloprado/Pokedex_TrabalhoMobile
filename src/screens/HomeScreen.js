@@ -1,7 +1,9 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  LayoutAnimation,
+  Platform,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -9,18 +11,20 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  UIManager,
   View
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import PokemonCard from '../components/PokemonCard';
 import {
-  fetchAllKantoPokemon,
-  KANTO_LIMIT,
+  fetchPokemonDetails,
+  fetchPokemonByRegion,
+  REGION_OPTIONS,
   searchPokemonByNameOrId,
   searchPokemonSuggestions
 } from '../services/pokeapi';
 import { getFavoriteIds, toggleFavoriteId } from '../services/favoritesStorage';
-import { getTypeColor, KANTO_TYPES, getTypeTextColor } from '../utils/pokemonTypes';
+import { getTypeColor, POKEMON_TYPES, getTypeTextColor } from '../utils/pokemonTypes';
 
 const SORT_MODES = [
   { key: 'id', label: 'Numero' },
@@ -34,22 +38,55 @@ export default function HomeScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
   const [favoriteIds, setFavoriteIds] = useState([]);
-  const [selectedType, setSelectedType] = useState('all');
+  const [favoritePokemonList, setFavoritePokemonList] = useState([]);
+  const [loadingFavorites, setLoadingFavorites] = useState(false);
+  const [selectedRegion, setSelectedRegion] = useState('kanto');
+  const [selectedTypes, setSelectedTypes] = useState(['all']);
   const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
+  const [showFilters, setShowFilters] = useState(true);
+  const [isRegionLoading, setIsRegionLoading] = useState(false);
   const [sortMode, setSortMode] = useState('id');
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const lastScrollY = useRef(0);
+  const activePokemonSource = useMemo(
+    () => (showOnlyFavorites ? favoritePokemonList : pokemonList),
+    [showOnlyFavorites, favoritePokemonList, pokemonList]
+  );
+
+  useEffect(() => {
+    if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+      UIManager.setLayoutAnimationEnabledExperimental(true);
+    }
+  }, []);
+
+  const animateFiltersVisibility = useCallback((nextVisible) => {
+    LayoutAnimation.configureNext({
+      duration: 230,
+      update: {
+        type: LayoutAnimation.Types.easeInEaseOut
+      },
+      delete: {
+        type: LayoutAnimation.Types.easeInEaseOut,
+        property: LayoutAnimation.Properties.opacity
+      },
+      create: {
+        type: LayoutAnimation.Types.easeInEaseOut,
+        property: LayoutAnimation.Properties.opacity
+      }
+    });
+
+    setShowFilters(nextVisible);
+  }, []);
 
   const trimmedSearch = useMemo(() => searchText.trim(), [searchText]);
   const visiblePokemon = useMemo(() => {
-    let filtered = [...pokemonList];
+    let filtered = [...activePokemonSource];
 
-    if (selectedType !== 'all') {
-      filtered = filtered.filter((pokemon) => pokemon.types.includes(selectedType));
-    }
-
-    if (showOnlyFavorites) {
-      filtered = filtered.filter((pokemon) => favoriteIds.includes(pokemon.id));
+    if (!selectedTypes.includes('all')) {
+      filtered = filtered.filter((pokemon) =>
+        selectedTypes.some((typeName) => pokemon.types.includes(typeName))
+      );
     }
 
     if (sortMode === 'name') {
@@ -59,7 +96,7 @@ export default function HomeScreen({ navigation }) {
     }
 
     return filtered;
-  }, [pokemonList, selectedType, showOnlyFavorites, favoriteIds, sortMode]);
+  }, [activePokemonSource, selectedTypes, sortMode]);
 
   const loadFavorites = useCallback(async () => {
     try {
@@ -70,18 +107,50 @@ export default function HomeScreen({ navigation }) {
     }
   }, []);
 
+  const selectedRegionLabel = useMemo(() => {
+    const region = REGION_OPTIONS.find((item) => item.key === selectedRegion);
+    return region?.label || 'Kanto';
+  }, [selectedRegion]);
+
   const loadInitialPokemon = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
-      const data = await fetchAllKantoPokemon();
+      const data = await fetchPokemonByRegion(selectedRegion);
       setPokemonList(data);
     } catch (err) {
       setError(err.message || 'Erro ao carregar pokemons.');
     } finally {
       setLoading(false);
+      setIsRegionLoading(false);
     }
-  }, []);
+  }, [selectedRegion]);
+
+  const loadGlobalFavoritesPokemon = useCallback(async () => {
+    if (favoriteIds.length === 0) {
+      setFavoritePokemonList([]);
+      return;
+    }
+
+    try {
+      setLoadingFavorites(true);
+      const detailsList = await Promise.all(favoriteIds.map((id) => fetchPokemonDetails(id)));
+      const normalizedFavorites = detailsList.map((pokemon) => ({
+        id: pokemon.id,
+        name: pokemon.name,
+        image: pokemon.image,
+        types: pokemon.types,
+        height: pokemon.height,
+        weight: pokemon.weight
+      }));
+
+      setFavoritePokemonList(normalizedFavorites);
+    } catch {
+      setFavoritePokemonList([]);
+    } finally {
+      setLoadingFavorites(false);
+    }
+  }, [favoriteIds]);
 
   const handleSearchPokemon = useCallback(async () => {
     if (!trimmedSearch) {
@@ -94,7 +163,7 @@ export default function HomeScreen({ navigation }) {
       setError('');
       const data = await searchPokemonByNameOrId(trimmedSearch);
       setPokemonList(data ? [data] : []);
-      setSelectedType('all');
+      setSelectedTypes(['all']);
     } catch (err) {
       setPokemonList([]);
       setError(err.message || 'Pokemon nao encontrado.');
@@ -110,6 +179,14 @@ export default function HomeScreen({ navigation }) {
   useEffect(() => {
     loadFavorites();
   }, [loadFavorites]);
+
+  useEffect(() => {
+    if (!showOnlyFavorites) {
+      return;
+    }
+
+    loadGlobalFavoritesPokemon();
+  }, [showOnlyFavorites, loadGlobalFavoritesPokemon]);
 
   useFocusEffect(
     useCallback(() => {
@@ -134,7 +211,7 @@ export default function HomeScreen({ navigation }) {
       }
 
       try {
-        const results = await searchPokemonSuggestions(trimmedSearch);
+        const results = await searchPokemonSuggestions(trimmedSearch, selectedRegion);
         setSuggestions(results);
         setShowSuggestions(results.length > 0);
       } catch {
@@ -144,13 +221,13 @@ export default function HomeScreen({ navigation }) {
     };
 
     loadSuggestions();
-  }, [trimmedSearch]);
+  }, [trimmedSearch, selectedRegion]);
 
   function handleSelectSuggestion(pokemon) {
     setPokemonList([pokemon]);
     setSearchText(pokemon.name);
     setShowSuggestions(false);
-    setSelectedType('all');
+    setSelectedTypes(['all']);
     setSuggestions([]);
   }
 
@@ -161,7 +238,7 @@ export default function HomeScreen({ navigation }) {
 
     return (
       <Text style={styles.footerInfo}>
-        Exibindo {visiblePokemon.length} de {pokemonList.length} Pokemon carregados.
+        Exibindo {visiblePokemon.length} de {activePokemonSource.length} Pokemon carregados.
       </Text>
     );
   }
@@ -180,7 +257,7 @@ export default function HomeScreen({ navigation }) {
       setRefreshing(true);
       setError('');
       const [pokemonData, ids] = await Promise.all([
-        fetchAllKantoPokemon(),
+        fetchPokemonByRegion(selectedRegion),
         getFavoriteIds()
       ]);
       setPokemonList(pokemonData);
@@ -193,13 +270,52 @@ export default function HomeScreen({ navigation }) {
   }
 
   function clearFilters() {
-    setSelectedType('all');
+    setSelectedRegion('kanto');
+    setSelectedTypes(['all']);
     setShowOnlyFavorites(false);
     setSortMode('id');
     setSearchText('');
     setSuggestions([]);
     setShowSuggestions(false);
+    animateFiltersVisibility(true);
   }
+
+  function handleToggleType(typeName) {
+    if (typeName === 'all') {
+      setSelectedTypes(['all']);
+      return;
+    }
+
+    setSelectedTypes((prev) => {
+      const withoutAll = prev.filter((item) => item !== 'all');
+
+      if (withoutAll.includes(typeName)) {
+        const next = withoutAll.filter((item) => item !== typeName);
+        return next.length === 0 ? ['all'] : next;
+      }
+
+      return [...withoutAll, typeName];
+    });
+  }
+
+  const handleListScroll = useCallback(
+    (event) => {
+      const currentY = event.nativeEvent.contentOffset.y;
+      const delta = currentY - lastScrollY.current;
+
+      if (Math.abs(delta) < 16) {
+        return;
+      }
+
+      // Auto-hide only when scrolling down; reopening is manual via button.
+      if (delta > 0 && currentY > 24 && showFilters) {
+        animateFiltersVisibility(false);
+      }
+
+      lastScrollY.current = currentY;
+    },
+    [animateFiltersVisibility, showFilters]
+  );
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -211,8 +327,12 @@ export default function HomeScreen({ navigation }) {
             <View style={[styles.light, styles.lightYellow]} />
             <View style={[styles.light, styles.lightGreen]} />
           </View>
-          <Text style={styles.title}>POKEDEX KANTO</Text>
-          <Text style={styles.subtitle}>Primeira geracao ({KANTO_LIMIT} Pokemon)</Text>
+          <Text style={styles.title}>POKEDEX</Text>
+          <Text style={styles.subtitle}>
+            {showOnlyFavorites
+              ? `Favoritos globais (${favoritePokemonList.length} Pokemon)`
+              : `Regiao atual: ${selectedRegionLabel} (${pokemonList.length} Pokemon)`}
+          </Text>
         </View>
 
         <TextInput
@@ -240,12 +360,13 @@ export default function HomeScreen({ navigation }) {
 
         <View style={styles.filterTopRow}>
           <Pressable
-            style={[styles.favoriteToggle, showOnlyFavorites && styles.favoriteToggleActive]}
-            onPress={() => setShowOnlyFavorites((prev) => !prev)}
+            style={styles.toggleFiltersButton}
+            onPress={() => {
+              animateFiltersVisibility(!showFilters);
+              lastScrollY.current = 0;
+            }}
           >
-            <Text style={styles.favoriteToggleText}>
-              {showOnlyFavorites ? 'Mostrando favoritos' : 'Ver apenas favoritos'}
-            </Text>
+            <Text style={styles.toggleFiltersButtonText}>{showFilters ? 'Ocultar filtros' : 'Mostrar filtros'}</Text>
           </Pressable>
 
           <Pressable style={styles.resetButton} onPress={clearFilters}>
@@ -253,62 +374,121 @@ export default function HomeScreen({ navigation }) {
           </Pressable>
         </View>
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.sortContainer}
-          style={{ flexShrink: 0 }}
-          nestedScrollEnabled={true}
-        >
-          {SORT_MODES.map((sortItem) => {
-            const isSelected = sortMode === sortItem.key;
-            return (
-              <Pressable
-                key={sortItem.key}
-                style={[styles.sortChip, isSelected && styles.sortChipActive]}
-                onPress={() => setSortMode(sortItem.key)}
-              >
-                <Text style={[styles.sortText, isSelected && styles.sortTextActive]}>
-                  Ordenar por {sortItem.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
+        {isRegionLoading && (
+          <View style={styles.regionLoadingNotice}>
+            <ActivityIndicator size="small" color="#cf1124" />
+            <Text style={styles.regionLoadingText}>Carregando regiao: {selectedRegionLabel}</Text>
+          </View>
+        )}
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.typeFiltersContainer}
-          style={{ flexShrink: 0 }}
-          nestedScrollEnabled={true}
-        >
-          {KANTO_TYPES.map((typeName) => {
-            const isSelected = selectedType === typeName;
-            const bgColor = typeName === 'all' ? '#495057' : getTypeColor(typeName);
-            const textColor = typeName === 'all' ? '#fff' : getTypeTextColor(typeName);
+        {showFilters && (
+          <>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.regionContainer}
+              style={{ flexShrink: 0 }}
+              nestedScrollEnabled={true}
+            >
+              {REGION_OPTIONS.map((region) => {
+                const isSelected = selectedRegion === region.key;
 
-            return (
-              <Pressable
-                key={typeName}
-                style={[
-                  styles.typeFilterChip,
-                  { backgroundColor: bgColor },
-                  isSelected && styles.typeFilterChipActive
-                ]}
-                onPress={() => setSelectedType(typeName)}
-              >
-                <Text style={[styles.typeFilterText, { color: textColor }]}>
-                  {typeName === 'all' ? 'todos' : typeName}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
+                return (
+                  <Pressable
+                    key={region.key}
+                    style={[styles.regionChip, isSelected && styles.regionChipActive]}
+                    onPress={() => {
+                      if (region.key === selectedRegion) {
+                        return;
+                      }
+
+                      setIsRegionLoading(true);
+                      setSelectedRegion(region.key);
+                      setSearchText('');
+                      setSuggestions([]);
+                      setShowSuggestions(false);
+                    }}
+                  >
+                    <Text style={[styles.regionText, isSelected && styles.regionTextActive]}>{region.label}</Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+
+            <Pressable
+              style={[styles.favoriteToggle, showOnlyFavorites && styles.favoriteToggleActive]}
+              onPress={() => {
+                const next = !showOnlyFavorites;
+                setShowOnlyFavorites(next);
+
+                if (next) {
+                  loadGlobalFavoritesPokemon();
+                }
+              }}
+            >
+              <Text style={styles.favoriteToggleText}>
+                {showOnlyFavorites ? 'Favoritos globais ativos' : 'Ver favoritos globais'}
+              </Text>
+            </Pressable>
+
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.sortContainer}
+              style={{ flexShrink: 0 }}
+              nestedScrollEnabled={true}
+            >
+              {SORT_MODES.map((sortItem) => {
+                const isSelected = sortMode === sortItem.key;
+                return (
+                  <Pressable
+                    key={sortItem.key}
+                    style={[styles.sortChip, isSelected && styles.sortChipActive]}
+                    onPress={() => setSortMode(sortItem.key)}
+                  >
+                    <Text style={[styles.sortText, isSelected && styles.sortTextActive]}>
+                      Ordenar por {sortItem.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.typeFiltersContainer}
+              style={{ flexShrink: 0 }}
+              nestedScrollEnabled={true}
+            >
+              {POKEMON_TYPES.map((typeName) => {
+                const isSelected = selectedTypes.includes(typeName);
+                const bgColor = typeName === 'all' ? '#495057' : getTypeColor(typeName);
+                const textColor = typeName === 'all' ? '#fff' : getTypeTextColor(typeName);
+
+                return (
+                  <Pressable
+                    key={typeName}
+                    style={[
+                      styles.typeFilterChip,
+                      { backgroundColor: bgColor },
+                      isSelected && styles.typeFilterChipActive
+                    ]}
+                    onPress={() => handleToggleType(typeName)}
+                  >
+                    <Text style={[styles.typeFilterText, { color: textColor }]}>
+                      {typeName === 'all' ? 'todos' : typeName}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </>
+        )}
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-        {loading && visiblePokemon.length === 0 ? (
+        {(loading || (showOnlyFavorites && loadingFavorites)) && visiblePokemon.length === 0 ? (
           <View style={styles.loaderContainer}>
             <ActivityIndicator size="large" color="#e63946" />
           </View>
@@ -316,6 +496,8 @@ export default function HomeScreen({ navigation }) {
           <FlatList
             data={visiblePokemon}
             keyExtractor={(item) => String(item.id)}
+            onScroll={handleListScroll}
+            scrollEventThrottle={16}
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
             }
@@ -404,7 +586,8 @@ const styles = StyleSheet.create({
     gap: 8,
     alignItems: 'center'
   },
-  favoriteToggle: {
+  toggleFiltersButton: {
+    flex: 1,
     backgroundColor: '#fffdf5',
     borderRadius: 999,
     paddingHorizontal: 14,
@@ -413,6 +596,48 @@ const styles = StyleSheet.create({
     borderColor: '#2b2d42',
     justifyContent: 'center',
     alignItems: 'center'
+  },
+  toggleFiltersButtonText: {
+    fontWeight: '700',
+    color: '#212529'
+  },
+  regionContainer: {
+    paddingBottom: 10,
+    gap: 8,
+    minHeight: 50,
+    alignItems: 'center'
+  },
+  regionChip: {
+    borderWidth: 2,
+    borderColor: '#2b2d42',
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    backgroundColor: '#fffdf5',
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  regionChipActive: {
+    backgroundColor: '#cf1124',
+    borderColor: '#8d0b1b'
+  },
+  regionText: {
+    color: '#2b2d42',
+    fontWeight: '700'
+  },
+  regionTextActive: {
+    color: '#fff'
+  },
+  favoriteToggle: {
+    backgroundColor: '#fffdf5',
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderWidth: 2,
+    borderColor: '#2b2d42',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10
   },
   favoriteToggleActive: {
     backgroundColor: '#ffd43b'
@@ -491,6 +716,22 @@ const styles = StyleSheet.create({
     color: '#c92a2a',
     marginBottom: 10,
     fontWeight: '500'
+  },
+  regionLoadingNotice: {
+    marginBottom: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#fff5f5',
+    borderWidth: 1,
+    borderColor: '#ffd8d8',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8
+  },
+  regionLoadingText: {
+    color: '#7f1d1d',
+    fontWeight: '600'
   },
   loaderContainer: {
     flex: 1,
