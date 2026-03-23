@@ -36,7 +36,7 @@ export async function fetchPokemonList(offset = 0, limit = 20) {
   );
 
   if (!response.ok) {
-    throw new Error('Nao foi possivel carregar a lista de Pokemon.');
+    throw new Error('Não foi possível carregar a lista de Pokémon.');
   }
 
   const data = await response.json();
@@ -58,7 +58,7 @@ async function fetchPokemonSummary(urlOrId) {
   );
 
   if (!detailsResponse.ok) {
-    throw new Error('Falha ao carregar detalhes dos Pokemon.');
+    throw new Error('Falha ao carregar detalhes dos Pokémons.');
   }
 
   const details = await detailsResponse.json();
@@ -91,13 +91,13 @@ export async function fetchPokemonByRegion(regionKey = 'kanto') {
   const regionOption = REGION_OPTIONS.find((region) => region.key === normalizedRegion);
 
   if (!regionOption) {
-    throw new Error('Regiao invalida.');
+    throw new Error('Região inválida.');
   }
 
   const response = await fetch(`${API_BASE_URL}/generation/${regionOption.generationId}`);
 
   if (!response.ok) {
-    throw new Error('Nao foi possivel carregar os Pokemon da regiao selecionada.');
+    throw new Error('Não foi possível carregar os Pokémons da região selecionada.');
   }
 
   const data = await response.json();
@@ -139,7 +139,7 @@ export async function fetchPokemonDetails(idOrName) {
   const response = await fetch(`${API_BASE_URL}/pokemon/${key}`);
 
   if (!response.ok) {
-    throw new Error('Nao foi possivel carregar os detalhes do Pokemon.');
+    throw new Error('Não foi possível carregar os detalhes do Pokémon.');
   }
 
   const details = await response.json();
@@ -197,7 +197,13 @@ export async function searchPokemonSuggestions(rawQuery, regionKey = 'kanto') {
 
   const regionPokemon = await fetchPokemonByRegion(regionKey);
   const suggestions = regionPokemon
-    .filter((pokemon) => pokemon.name.toLowerCase().includes(normalizedQuery))
+    .filter((pokemon) => {
+      const pokemonId = String(pokemon.id);
+      return (
+        pokemon.name.toLowerCase().includes(normalizedQuery) ||
+        pokemonId.startsWith(normalizedQuery)
+      );
+    })
     .slice(0, 8);
 
   return suggestions;
@@ -212,14 +218,14 @@ export async function fetchEvolutionChainByPokemonId(pokemonId) {
   const speciesResponse = await fetch(`${API_BASE_URL}/pokemon-species/${pokemonId}`);
 
   if (!speciesResponse.ok) {
-    throw new Error('Nao foi possivel carregar a especie do Pokemon.');
+    throw new Error('Não foi possível carregar a espécie do Pokémon.');
   }
 
   const speciesData = await speciesResponse.json();
   const evolutionResponse = await fetch(speciesData.evolution_chain.url);
 
   if (!evolutionResponse.ok) {
-    throw new Error('Nao foi possivel carregar a cadeia evolutiva.');
+    throw new Error('Não foi possível carregar a cadeia evolutiva.');
   }
 
   const evolutionData = await evolutionResponse.json();

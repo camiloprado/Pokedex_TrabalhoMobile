@@ -1,6 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
-  SafeAreaView,
   View,
   ScrollView,
   Text,
@@ -9,6 +8,7 @@ import {
   Pressable,
   ActivityIndicator
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 function translateMoveDescriptionToPtBr(rawText) {
   if (!rawText) {
@@ -17,20 +17,20 @@ function translateMoveDescriptionToPtBr(rawText) {
 
   const dictionary = {
     'Inflicts regular damage with no additional effect.': 'Causa dano normal sem efeito adicional.',
-    'Has no effect in battle.': 'Nao tem efeito em batalha.',
-    "Lowers the target's Attack by one stage.": 'Diminui o Ataque do alvo em um estagio.',
-    "Lowers the target's Defense by one stage.": 'Diminui a Defesa do alvo em um estagio.',
-    "Lowers the target's Speed by one stage.": 'Diminui a Velocidade do alvo em um estagio.',
-    "Raises the user's Attack by one stage.": 'Aumenta o Ataque do usuario em um estagio.',
-    "Raises the user's Defense by one stage.": 'Aumenta a Defesa do usuario em um estagio.',
-    "Raises the user's Speed by one stage.": 'Aumenta a Velocidade do usuario em um estagio.',
-    "Raises the user's Special Attack by one stage.": 'Aumenta o Ataque Especial do usuario em um estagio.',
-    "Raises the user's Special Defense by one stage.": 'Aumenta a Defesa Especial do usuario em um estagio.',
-    'User foregoes its next turn to recharge.': 'O usuario precisa recarregar e perde o proximo turno.',
-    'User sleeps for two turns, completely healing itself.': 'O usuario dorme por dois turnos e recupera totalmente o HP.',
-    'User faints.': 'O usuario desmaia.',
+    'Has no effect in battle.': 'Não tem efeito em batalha.',
+    "Lowers the target's Attack by one stage.": 'Diminui o Ataque do alvo em um estágio.',
+    "Lowers the target's Defense by one stage.": 'Diminui a Defesa do alvo em um estágio.',
+    "Lowers the target's Speed by one stage.": 'Diminui a Velocidade do alvo em um estágio.',
+    "Raises the user's Attack by one stage.": 'Aumenta o Ataque do usuário em um estágio.',
+    "Raises the user's Defense by one stage.": 'Aumenta a Defesa do usuário em um estágio.',
+    "Raises the user's Speed by one stage.": 'Aumenta a Velocidade do usuário em um estágio.',
+    "Raises the user's Special Attack by one stage.": 'Aumenta o Ataque Especial do usuário em um estágio.',
+    "Raises the user's Special Defense by one stage.": 'Aumenta a Defesa Especial do usuário em um estágio.',
+    'User foregoes its next turn to recharge.': 'O usuário precisa recarregar e perde o próximo turno.',
+    'User sleeps for two turns, completely healing itself.': 'O usuário dorme por dois turnos e recupera totalmente o HP.',
+    'User faints.': 'O usuário desmaia.',
     'Always goes first.': 'Sempre ataca primeiro.',
-    'This move does not check accuracy.': 'Este movimento nao verifica precisao.'
+    'This move does not check accuracy.': 'Este movimento não verifica precisão.'
   };
 
   if (dictionary[rawText]) {
@@ -48,17 +48,28 @@ export default function MovesScreen({ route }) {
   const [filterMethod, setFilterMethod] = useState('all');
   const [moveDetailsByName, setMoveDetailsByName] = useState({});
   const [loadingMoveName, setLoadingMoveName] = useState('');
+  const movesRequestIdRef = useRef(0);
 
   useEffect(() => {
     loadMoves();
   }, [pokemon]);
 
   const loadMoves = useCallback(async () => {
+    const requestId = ++movesRequestIdRef.current;
+
     try {
       setLoading(true);
+      setExpandedMove(null);
+      setMoveDetailsByName({});
+
       const response = await fetch(
         `https://pokeapi.co/api/v2/pokemon/${pokemon.id}`
       );
+
+      if (!response.ok) {
+        throw new Error('Falha ao carregar lista de movimentos');
+      }
+
       const data = await response.json();
 
       const movesData = data.moves.map((moveData) => {
@@ -71,12 +82,18 @@ export default function MovesScreen({ route }) {
         };
       });
 
-      setMoves(movesData);
+      if (requestId === movesRequestIdRef.current) {
+        setMoves(movesData);
+      }
     } catch (error) {
       console.error('Error loading moves:', error);
-      setMoves([]);
+      if (requestId === movesRequestIdRef.current) {
+        setMoves([]);
+      }
     } finally {
-      setLoading(false);
+      if (requestId === movesRequestIdRef.current) {
+        setLoading(false);
+      }
     }
   }, [pokemon]);
 
@@ -111,11 +128,11 @@ export default function MovesScreen({ route }) {
 
   const getMoveMethodLabel = (method) => {
     const labels = {
-      'level-up': 'Nivel',
-      machine: 'Maquina',
+      'level-up': 'Nível',
+      machine: 'Máquina',
       tutor: 'Tutor',
       egg: 'Ovo',
-      'form-change': 'Mudanca de Forma',
+      'form-change': 'Mudança de Forma',
       'move-reminder': 'Lembrador de Movimento',
       unknown: 'Desconhecido'
     };
@@ -124,7 +141,7 @@ export default function MovesScreen({ route }) {
 
   const getDamageClassLabel = (damageClass) => {
     const labels = {
-      physical: 'Fisico',
+      physical: 'Físico',
       special: 'Especial',
       status: 'Status'
     };
@@ -136,6 +153,8 @@ export default function MovesScreen({ route }) {
       return;
     }
 
+    const requestId = movesRequestIdRef.current;
+
     try {
       setLoadingMoveName(moveName);
       const response = await fetch(`https://pokeapi.co/api/v2/move/${moveName}`);
@@ -145,6 +164,10 @@ export default function MovesScreen({ route }) {
 
       const data = await response.json();
       const shortEffectEntry = data.effect_entries.find((entry) => entry.language.name === 'en');
+
+      if (requestId !== movesRequestIdRef.current) {
+        return;
+      }
 
       setMoveDetailsByName((prev) => ({
         ...prev,
@@ -159,6 +182,10 @@ export default function MovesScreen({ route }) {
         }
       }));
     } catch {
+      if (requestId !== movesRequestIdRef.current) {
+        return;
+      }
+
       setMoveDetailsByName((prev) => ({
         ...prev,
         [moveName]: {
@@ -172,7 +199,9 @@ export default function MovesScreen({ route }) {
         }
       }));
     } finally {
-      setLoadingMoveName('');
+      if (requestId === movesRequestIdRef.current) {
+        setLoadingMoveName('');
+      }
     }
   }, [moveDetailsByName]);
 
@@ -339,7 +368,7 @@ export default function MovesScreen({ route }) {
                     </Text>
                   </View>
                   <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>Precisao:</Text>
+                    <Text style={styles.detailLabel}>Precisão:</Text>
                     <Text style={styles.detailValue}>
                       {moveDetailsByName[item.name]?.accuracy ?? '-'}
                     </Text>
@@ -360,8 +389,8 @@ export default function MovesScreen({ route }) {
                   )}
                   <Text style={styles.detailNote}>
                     {loadingMoveName === item.name
-                      ? 'Carregando descricao...'
-                      : moveDetailsByName[item.name]?.descriptionPtBr || 'Traducao precisa indisponivel para este movimento.'}
+                      ? 'Carregando descrição...'
+                      : moveDetailsByName[item.name]?.descriptionPtBr || 'Tradução precisa indisponível para este movimento.'}
                   </Text>
                   <Text style={styles.detailNoteOriginal}>
                     {loadingMoveName === item.name

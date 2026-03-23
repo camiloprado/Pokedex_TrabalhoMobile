@@ -5,7 +5,6 @@ import {
   LayoutAnimation,
   Platform,
   Pressable,
-  SafeAreaView,
   ScrollView,
   RefreshControl,
   StyleSheet,
@@ -15,6 +14,7 @@ import {
   View
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import PokemonCard from '../components/PokemonCard';
 import {
   fetchPokemonDetails,
@@ -27,7 +27,7 @@ import { getFavoriteIds, toggleFavoriteId } from '../services/favoritesStorage';
 import { getTypeColor, POKEMON_TYPES, getTypeTextColor } from '../utils/pokemonTypes';
 
 const SORT_MODES = [
-  { key: 'id', label: 'Numero' },
+  { key: 'id', label: 'Número' },
   { key: 'name', label: 'Nome' }
 ];
 
@@ -49,6 +49,9 @@ export default function HomeScreen({ navigation }) {
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const lastScrollY = useRef(0);
+  const listRequestIdRef = useRef(0);
+  const favoritesRequestIdRef = useRef(0);
+  const suggestionsRequestIdRef = useRef(0);
   const activePokemonSource = useMemo(
     () => (showOnlyFavorites ? favoritePokemonList : pokemonList),
     [showOnlyFavorites, favoritePokemonList, pokemonList]
@@ -113,22 +116,35 @@ export default function HomeScreen({ navigation }) {
   }, [selectedRegion]);
 
   const loadInitialPokemon = useCallback(async () => {
+    const requestId = ++listRequestIdRef.current;
+
     try {
       setLoading(true);
       setError('');
       const data = await fetchPokemonByRegion(selectedRegion);
-      setPokemonList(data);
+
+      if (requestId === listRequestIdRef.current) {
+        setPokemonList(data);
+      }
     } catch (err) {
-      setError(err.message || 'Erro ao carregar pokemons.');
+      if (requestId === listRequestIdRef.current) {
+        setError(err.message || 'Erro ao carregar Pokémons.');
+      }
     } finally {
-      setLoading(false);
-      setIsRegionLoading(false);
+      if (requestId === listRequestIdRef.current) {
+        setLoading(false);
+        setIsRegionLoading(false);
+      }
     }
   }, [selectedRegion]);
 
   const loadGlobalFavoritesPokemon = useCallback(async () => {
+    const requestId = ++favoritesRequestIdRef.current;
+
     if (favoriteIds.length === 0) {
-      setFavoritePokemonList([]);
+      if (requestId === favoritesRequestIdRef.current) {
+        setFavoritePokemonList([]);
+      }
       return;
     }
 
@@ -144,11 +160,17 @@ export default function HomeScreen({ navigation }) {
         weight: pokemon.weight
       }));
 
-      setFavoritePokemonList(normalizedFavorites);
+      if (requestId === favoritesRequestIdRef.current) {
+        setFavoritePokemonList(normalizedFavorites);
+      }
     } catch {
-      setFavoritePokemonList([]);
+      if (requestId === favoritesRequestIdRef.current) {
+        setFavoritePokemonList([]);
+      }
     } finally {
-      setLoadingFavorites(false);
+      if (requestId === favoritesRequestIdRef.current) {
+        setLoadingFavorites(false);
+      }
     }
   }, [favoriteIds]);
 
@@ -158,17 +180,26 @@ export default function HomeScreen({ navigation }) {
       return;
     }
 
+    const requestId = ++listRequestIdRef.current;
+
     try {
       setLoading(true);
       setError('');
       const data = await searchPokemonByNameOrId(trimmedSearch);
-      setPokemonList(data ? [data] : []);
-      setSelectedTypes(['all']);
+
+      if (requestId === listRequestIdRef.current) {
+        setPokemonList(data ? [data] : []);
+        setSelectedTypes(['all']);
+      }
     } catch (err) {
-      setPokemonList([]);
-      setError(err.message || 'Pokemon nao encontrado.');
+      if (requestId === listRequestIdRef.current) {
+        setPokemonList([]);
+        setError(err.message || 'Pokémon não encontrado.');
+      }
     } finally {
-      setLoading(false);
+      if (requestId === listRequestIdRef.current) {
+        setLoading(false);
+      }
     }
   }, [trimmedSearch, loadInitialPokemon]);
 
@@ -204,6 +235,8 @@ export default function HomeScreen({ navigation }) {
 
   useEffect(() => {
     const loadSuggestions = async () => {
+      const requestId = ++suggestionsRequestIdRef.current;
+
       if (!trimmedSearch) {
         setSuggestions([]);
         setShowSuggestions(false);
@@ -212,11 +245,16 @@ export default function HomeScreen({ navigation }) {
 
       try {
         const results = await searchPokemonSuggestions(trimmedSearch, selectedRegion);
-        setSuggestions(results);
-        setShowSuggestions(results.length > 0);
+
+        if (requestId === suggestionsRequestIdRef.current) {
+          setSuggestions(results);
+          setShowSuggestions(results.length > 0);
+        }
       } catch {
-        setSuggestions([]);
-        setShowSuggestions(false);
+        if (requestId === suggestionsRequestIdRef.current) {
+          setSuggestions([]);
+          setShowSuggestions(false);
+        }
       }
     };
 
@@ -238,7 +276,7 @@ export default function HomeScreen({ navigation }) {
 
     return (
       <Text style={styles.footerInfo}>
-        Exibindo {visiblePokemon.length} de {activePokemonSource.length} Pokemon carregados.
+        Exibindo {visiblePokemon.length} de {activePokemonSource.length} Pokémons carregados.
       </Text>
     );
   }
@@ -248,11 +286,13 @@ export default function HomeScreen({ navigation }) {
       const ids = await toggleFavoriteId(id);
       setFavoriteIds(ids);
     } catch {
-      setError('Nao foi possivel atualizar os favoritos.');
+      setError('Não foi possível atualizar os favoritos.');
     }
   }
 
   async function handleRefresh() {
+    const requestId = ++listRequestIdRef.current;
+
     try {
       setRefreshing(true);
       setError('');
@@ -260,12 +300,19 @@ export default function HomeScreen({ navigation }) {
         fetchPokemonByRegion(selectedRegion),
         getFavoriteIds()
       ]);
-      setPokemonList(pokemonData);
-      setFavoriteIds(ids);
+
+      if (requestId === listRequestIdRef.current) {
+        setPokemonList(pokemonData);
+        setFavoriteIds(ids);
+      }
     } catch (err) {
-      setError(err.message || 'Erro ao atualizar a Pokedex.');
+      if (requestId === listRequestIdRef.current) {
+        setError(err.message || 'Erro ao atualizar a Pokédex.');
+      }
     } finally {
-      setRefreshing(false);
+      if (requestId === listRequestIdRef.current) {
+        setRefreshing(false);
+      }
     }
   }
 
@@ -327,11 +374,11 @@ export default function HomeScreen({ navigation }) {
             <View style={[styles.light, styles.lightYellow]} />
             <View style={[styles.light, styles.lightGreen]} />
           </View>
-          <Text style={styles.title}>POKEDEX</Text>
+          <Text style={styles.title}>POKÉDEX</Text>
           <Text style={styles.subtitle}>
             {showOnlyFavorites
-              ? `Favoritos globais (${favoritePokemonList.length} Pokemon)`
-              : `Regiao atual: ${selectedRegionLabel} (${pokemonList.length} Pokemon)`}
+              ? `Favoritos globais (${favoritePokemonList.length} Pokémon)`
+              : `Região atual: ${selectedRegionLabel} (${pokemonList.length} Pokémon)`}
           </Text>
         </View>
 
@@ -377,7 +424,7 @@ export default function HomeScreen({ navigation }) {
         {isRegionLoading && (
           <View style={styles.regionLoadingNotice}>
             <ActivityIndicator size="small" color="#cf1124" />
-            <Text style={styles.regionLoadingText}>Carregando regiao: {selectedRegionLabel}</Text>
+            <Text style={styles.regionLoadingText}>Carregando região: {selectedRegionLabel}</Text>
           </View>
         )}
 
@@ -516,7 +563,7 @@ export default function HomeScreen({ navigation }) {
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
             ListEmptyComponent={
-              <Text style={styles.emptyText}>Nenhum pokemon encontrado.</Text>
+              <Text style={styles.emptyText}>Nenhum Pokémon encontrado.</Text>
             }
             ListFooterComponent={renderFooter}
           />

@@ -1,16 +1,15 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
-  SafeAreaView,
   View,
   ScrollView,
   Text,
   StyleSheet,
   Pressable,
   Image,
-  Dimensions,
   ActivityIndicator,
   PanResponder
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const REGION_OPTIONS = [
   {
@@ -96,6 +95,10 @@ const REGION_OPTIONS = [
   }
 ];
 
+const REGION_KEYS = REGION_OPTIONS.map((region) => region.key);
+const HABITAT_PAGE_SIZE = 6;
+const AREA_PAGE_SIZE = 4;
+
 const fetchRegionPokemonLocations = async (regionKey) => {
   try {
     const regionMap = {
@@ -111,36 +114,50 @@ const fetchRegionPokemonLocations = async (regionKey) => {
     };
 
     const generationId = regionMap[regionKey];
+    if (!generationId) {
+      return [];
+    }
+
     const response = await fetch(
       `https://pokeapi.co/api/v2/generation/${generationId}`
     );
+
+    if (!response.ok) {
+      return [];
+    }
+
     const data = await response.json();
 
-    const locations = [];
-    
-    // Buscar primeiros 12 Pokémons da geração com habitats
-    for (const pokeUrl of data.pokemon_species.slice(0, 12)) {
-      try {
-        const speciesId = pokeUrl.url.split('/').filter(Boolean).pop();
+    const speciesSlice = data.pokemon_species.slice(0, 12);
+    const speciesResults = await Promise.allSettled(
+      speciesSlice.map(async (speciesRef) => {
+        const speciesId = speciesRef.url.split('/').filter(Boolean).pop();
         const speciesResponse = await fetch(
           `https://pokeapi.co/api/v2/pokemon-species/${speciesId}`
         );
-        const speciesData = await speciesResponse.json();
-        
-        if (speciesData.name && speciesData.id) {
-          locations.push({
-            pokemon: speciesData.name,
-            habitat: speciesData.habitat?.name || 'Diverso',
-            id: speciesData.id,
-            color: speciesData.color?.name || 'unknown'
-          });
+
+        if (!speciesResponse.ok) {
+          return null;
         }
-      } catch (e) {
-        // Continua para o próximo se falhar
-        continue;
-      }
-    }
-    
+
+        const speciesData = await speciesResponse.json();
+        if (!speciesData.name || !speciesData.id) {
+          return null;
+        }
+
+        return {
+          pokemon: speciesData.name,
+          habitat: speciesData.habitat?.name || 'Diverso',
+          id: speciesData.id,
+          color: speciesData.color?.name || 'unknown'
+        };
+      })
+    );
+
+    const locations = speciesResults
+      .filter((result) => result.status === 'fulfilled' && result.value)
+      .map((result) => result.value);
+
     return locations.sort((a, b) => a.id - b.id);
   } catch (error) {
     console.error('Erro ao buscar localizações:', error);
@@ -149,17 +166,19 @@ const fetchRegionPokemonLocations = async (regionKey) => {
 };
 
 export default function MapsScreen() {
-  const AREA_PAGE_SIZE = 4;
   const [selectedRegion, setSelectedRegion] = useState('kanto');
   const [pokemonLocations, setPokemonLocations] = useState([]);
   const [areaEncounters, setAreaEncounters] = useState([]);
+  const [habitatPage, setHabitatPage] = useState(1);
   const [areaPage, setAreaPage] = useState(1);
   const [loadingLocations, setLoadingLocations] = useState(false);
-  const [mapImageLoaded, setMapImageLoaded] = useState(false);
+  const [mapImageStatus, setMapImageStatus] = useState('loading');
+  const [mapRetryCount, setMapRetryCount] = useState(0);
   
   const panResponderRef = useRef(null);
   const locationsCacheRef = useRef(new Map());
   const areasCacheRef = useRef(new Map());
+  const requestIdRef = useRef(0);
 
   useEffect(() => {
     // Criar PanResponder com selectedRegion atualizado
@@ -171,15 +190,14 @@ export default function MapsScreen() {
         return absDx > 24 && absDx > absDy;
       },
       onPanResponderRelease: (evt, gestureState) => {
-        const regionKeys = ['kanto', 'johto', 'hoenn', 'sinnoh', 'unova', 'kalos', 'alola', 'galar', 'paldea'];
-        const currentIndex = regionKeys.indexOf(selectedRegion);
+        const currentIndex = REGION_KEYS.indexOf(selectedRegion);
         
         if (gestureState.dx > 50 && currentIndex > 0) {
           // Swipe right - previous region
-          setSelectedRegion(regionKeys[currentIndex - 1]);
-        } else if (gestureState.dx < -50 && currentIndex < regionKeys.length - 1) {
+          setSelectedRegion(REGION_KEYS[currentIndex - 1]);
+        } else if (gestureState.dx < -50 && currentIndex < REGION_KEYS.length - 1) {
           // Swipe left - next region
-          setSelectedRegion(regionKeys[currentIndex + 1]);
+          setSelectedRegion(REGION_KEYS[currentIndex + 1]);
         }
       }
     });
@@ -265,8 +283,11 @@ export default function MapsScreen() {
     };
 
     const loadLocations = async () => {
+      const requestId = ++requestIdRef.current;
       setLoadingLocations(true);
-      setMapImageLoaded(false);
+      setMapImageStatus('loading');
+      setMapRetryCount(0);
+      setHabitatPage(1);
       setAreaPage(1);
 
       let locations = locationsCacheRef.current.get(selectedRegion);
@@ -285,6 +306,11 @@ export default function MapsScreen() {
         areasCacheRef.current.set(selectedRegion, areas);
       }
 
+      // Ignore stale responses when user changes region quickly.
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
+
       setPokemonLocations(locations);
       setAreaEncounters(areas);
       setLoadingLocations(false);
@@ -296,6 +322,11 @@ export default function MapsScreen() {
     return areaEncounters.slice(0, areaPage * AREA_PAGE_SIZE);
   }, [areaEncounters, areaPage]);
 
+  const visibleHabitats = useMemo(() => {
+    return pokemonLocations.slice(0, habitatPage * HABITAT_PAGE_SIZE);
+  }, [pokemonLocations, habitatPage]);
+
+  const hasMoreHabitats = visibleHabitats.length < pokemonLocations.length;
   const hasMoreAreaEncounters = visibleAreaEncounters.length < areaEncounters.length;
 
   const selectedRegionData = REGION_OPTIONS.find(
@@ -344,23 +375,32 @@ export default function MapsScreen() {
           style={[styles.mapContainer, { backgroundColor: selectedRegionData?.backgroundColor }]}
           {...panResponderRef.current?.panHandlers}
         >
-          {!mapImageLoaded && (
+          {mapImageStatus === 'loading' && (
             <View style={styles.mapLoadingOverlay}>
               <ActivityIndicator size="large" color="#cf1124" />
               <Text style={styles.mapLoadingText}>Carregando mapa...</Text>
             </View>
           )}
           <Image
-            source={{ uri: selectedRegionData?.mapImage }}
+            source={{ uri: `${selectedRegionData?.mapImage}?retry=${mapRetryCount}` }}
             style={styles.mapImage}
             resizeMode="contain"
-            onLoad={() => setMapImageLoaded(true)}
-            onError={() => setMapImageLoaded(true)}
+            onLoad={() => setMapImageStatus('loaded')}
+            onError={() => setMapImageStatus('error')}
           />
-          {!mapImageLoaded && (
+          {mapImageStatus === 'error' && (
             <View style={styles.mapFallback}>
               <Text style={styles.mapFallbackEmoji}>{selectedRegionData?.emoji}</Text>
               <Text style={styles.mapFallbackText}>{selectedRegionData?.label}</Text>
+              <Pressable
+                style={styles.retryMapButton}
+                onPress={() => {
+                  setMapImageStatus('loading');
+                  setMapRetryCount((prev) => prev + 1);
+                }}
+              >
+                <Text style={styles.retryMapButtonText}>Tentar carregar mapa novamente</Text>
+              </Pressable>
             </View>
           )}
           <View style={styles.mapOverlay}>
@@ -407,7 +447,7 @@ export default function MapsScreen() {
             </View>
           ) : pokemonLocations.length > 0 ? (
             <View style={styles.habitatsList}>
-              {pokemonLocations.map((item, index) => (
+              {visibleHabitats.map((item, index) => (
                 <View key={`${item.pokemon}-${index}`} style={styles.habitatItem}>
                   <Text style={styles.habitatPokemon}>
                     📍 {item.pokemon.toUpperCase()}
@@ -417,6 +457,14 @@ export default function MapsScreen() {
                   </Text>
                 </View>
               ))}
+              {hasMoreHabitats && (
+                <Pressable
+                  style={styles.loadMoreButton}
+                  onPress={() => setHabitatPage((prev) => prev + 1)}
+                >
+                  <Text style={styles.loadMoreButtonText}>Carregar mais habitats</Text>
+                </Pressable>
+              )}
             </View>
           ) : (
             <Text style={styles.noDataText}>
@@ -573,6 +621,18 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '800',
     color: '#212529'
+  },
+  retryMapButton: {
+    marginTop: 10,
+    backgroundColor: '#2b2d42',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8
+  },
+  retryMapButtonText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 12
   },
   mapOverlay: {
     backgroundColor: 'rgba(255, 253, 245, 0.95)',

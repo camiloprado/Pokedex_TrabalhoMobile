@@ -1,12 +1,11 @@
 import React from 'react';
 import {
-  SafeAreaView,
   View,
   Pressable,
   StyleSheet,
-  Text,
-  Image
+  Text
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function StartScreen({ navigation }) {
   const menuItems = [

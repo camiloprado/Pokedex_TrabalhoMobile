@@ -1,16 +1,16 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import {
   ActivityIndicator,
   Alert,
   FlatList,
   Image,
   Pressable,
-  SafeAreaView,
   StyleSheet,
   Text,
   TextInput,
   View
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const TEAMS_STORAGE_KEY = 'pokedex_teams';
@@ -37,6 +37,7 @@ export default function TeamDetailScreen({ route, navigation }) {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const loadRequestIdRef = useRef(0);
 
   useEffect(() => {
     const timeout = setTimeout(() => {
@@ -48,6 +49,8 @@ export default function TeamDetailScreen({ route, navigation }) {
   }, [query]);
 
   const loadData = useCallback(async () => {
+    const requestId = ++loadRequestIdRef.current;
+
     try {
       setLoading(true);
       const [teamsRaw, pokemonResponse] = await Promise.all([
@@ -56,15 +59,17 @@ export default function TeamDetailScreen({ route, navigation }) {
       ]);
 
       if (!pokemonResponse.ok) {
-        throw new Error('Falha ao carregar lista de pokemons.');
+        throw new Error('Falha ao carregar lista de Pokémons.');
       }
 
       const teams = teamsRaw ? JSON.parse(teamsRaw) : [];
       const foundTeam = teams.find((item) => item.id === teamId);
 
       if (!foundTeam) {
-        Alert.alert('Erro', 'Time nao encontrado.');
-        navigation.goBack();
+        if (requestId === loadRequestIdRef.current) {
+          Alert.alert('Erro', 'Time não encontrado.');
+          navigation.goBack();
+        }
         return;
       }
 
@@ -78,12 +83,18 @@ export default function TeamDetailScreen({ route, navigation }) {
         };
       });
 
-      setAllPokemon(parsedPokemon);
-      setTeam(foundTeam);
+      if (requestId === loadRequestIdRef.current) {
+        setAllPokemon(parsedPokemon);
+        setTeam(foundTeam);
+      }
     } catch (error) {
-      Alert.alert('Erro', error.message || 'Nao foi possivel carregar o time.');
+      if (requestId === loadRequestIdRef.current) {
+        Alert.alert('Erro', error.message || 'Não foi possível carregar o time.');
+      }
     } finally {
-      setLoading(false);
+      if (requestId === loadRequestIdRef.current) {
+        setLoading(false);
+      }
     }
   }, [teamId, navigation]);
 
@@ -103,7 +114,7 @@ export default function TeamDetailScreen({ route, navigation }) {
         await AsyncStorage.setItem(TEAMS_STORAGE_KEY, JSON.stringify(updatedTeams));
         setTeam(nextTeam);
       } catch {
-        Alert.alert('Erro', 'Nao foi possivel salvar o time.');
+        Alert.alert('Erro', 'Não foi possível salvar o time.');
       } finally {
         setSaving(false);
       }
@@ -140,12 +151,12 @@ export default function TeamDetailScreen({ route, navigation }) {
       }
 
       if (teamPokemonIds.has(pokemon.id)) {
-        Alert.alert('Aviso', 'Este pokemon ja esta no time.');
+        Alert.alert('Aviso', 'Este Pokémon já está no time.');
         return;
       }
 
       if (team.pokemon.length >= 6) {
-        Alert.alert('Aviso', 'Um time pode ter no maximo 6 pokemons.');
+        Alert.alert('Aviso', 'Um time pode ter no máximo 6 Pokémons.');
         return;
       }
 
@@ -191,13 +202,13 @@ export default function TeamDetailScreen({ route, navigation }) {
       <View style={styles.container}>
         <View style={styles.headerCard}>
           <Text style={styles.teamName}>{team.name}</Text>
-          <Text style={styles.teamSubtitle}>{team.pokemon.length}/6 pokemons</Text>
+          <Text style={styles.teamSubtitle}>{team.pokemon.length}/6 Pokémons</Text>
         </View>
 
-        <Text style={styles.sectionTitle}>Pokemons selecionados</Text>
+        <Text style={styles.sectionTitle}>Pokémons selecionados</Text>
         <View style={styles.selectedContainer}>
           {team.pokemon.length === 0 ? (
-            <Text style={styles.emptyText}>Nenhum pokemon no time.</Text>
+            <Text style={styles.emptyText}>Nenhum Pokémon no time.</Text>
           ) : (
             team.pokemon.map((pokemon) => (
               <View key={pokemon.id} style={styles.selectedItem}>
@@ -217,11 +228,11 @@ export default function TeamDetailScreen({ route, navigation }) {
           )}
         </View>
 
-        <Text style={styles.sectionTitle}>Adicionar pokemon</Text>
+        <Text style={styles.sectionTitle}>Adicionar Pokémon</Text>
         <TextInput
           value={query}
           onChangeText={setQuery}
-          placeholder="Buscar por nome ou numero"
+          placeholder="Buscar por nome ou número"
           style={styles.searchInput}
         />
 

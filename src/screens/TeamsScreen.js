@@ -1,6 +1,5 @@
 import React, { useState, useCallback } from 'react';
 import {
-  SafeAreaView,
   View,
   FlatList,
   Pressable,
@@ -10,6 +9,7 @@ import {
   Modal,
   Alert
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 
@@ -112,7 +112,7 @@ export default function TeamsScreen({ navigation }) {
           )}
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={
-            <Text style={styles.emptyText}>Nenhum time criado ainda</Text>
+            <Text style={styles.emptyText}>Nenhum time criado ainda.</Text>
           }
         />
 

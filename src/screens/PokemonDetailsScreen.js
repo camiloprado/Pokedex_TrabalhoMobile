@@ -5,12 +5,12 @@ import {
   Image,
   Pressable,
   ScrollView,
-  SafeAreaView,
   StyleSheet,
   Text,
   View,
   PanResponder
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { fetchEvolutionChainByPokemonId, fetchPokemonDetails } from '../services/pokeapi';
 import { getFavoriteIds, toggleFavoriteId } from '../services/favoritesStorage';
 import { getTypeColor, getTypeTextColor, getTypeBackgroundColor } from '../utils/pokemonTypes';
@@ -63,6 +63,7 @@ export default function PokemonDetailsScreen({ route, navigation }) {
   const [locations, setLocations] = useState([]);
   const panResponderRef = useRef(null);
   const showShinyRef = useRef(false);
+  const detailsRequestIdRef = useRef(0);
   const shinyProgress = useRef(new Animated.Value(0)).current;
 
   const animateToMode = useCallback((nextShowShiny) => {
@@ -92,35 +93,68 @@ export default function PokemonDetailsScreen({ route, navigation }) {
   }, [animateToMode]);
 
   useEffect(() => {
+    const requestId = ++detailsRequestIdRef.current;
+
     async function loadDetails() {
       try {
         setLoading(true);
+        setError('');
+        setLocations([]);
+        setEvolutionChain([]);
+        setIsFavorite(false);
+
         const details = await fetchPokemonDetails(pokemonId);
+        if (requestId !== detailsRequestIdRef.current) {
+          return;
+        }
+
         setPokemon(details);
         setShowShiny(false);
         showShinyRef.current = false;
         shinyProgress.setValue(0);
+
         const evolution = await fetchEvolutionChainByPokemonId(details.id);
+        if (requestId !== detailsRequestIdRef.current) {
+          return;
+        }
+
         setEvolutionChain(evolution);
 
         const favoriteIds = await getFavoriteIds();
+        if (requestId !== detailsRequestIdRef.current) {
+          return;
+        }
+
         setIsFavorite(favoriteIds.includes(details.id));
 
-        loadLocations(details.id);
+        loadLocations(details.id, requestId);
       } catch (err) {
-        setError(err.message || 'Erro ao carregar detalhes.');
+        if (requestId === detailsRequestIdRef.current) {
+          setError(err.message || 'Erro ao carregar detalhes.');
+        }
       } finally {
-        setLoading(false);
+        if (requestId === detailsRequestIdRef.current) {
+          setLoading(false);
+        }
       }
     }
 
     loadDetails();
-  }, [pokemonId]);
+  }, [pokemonId, shinyProgress]);
 
-  const loadLocations = async (pokemonId) => {
+  const loadLocations = async (pokemonId, requestId) => {
     try {
       const response = await fetch(`https://pokeapi.co/api/v2/pokemon/${pokemonId}/encounters`);
+      if (!response.ok) {
+        return;
+      }
+
       const data = await response.json();
+
+      if (requestId !== detailsRequestIdRef.current) {
+        return;
+      }
+
       if (data && Array.isArray(data)) {
         const uniqueLocations = [...new Set(data.map(e => e.location_area?.name || ''))].filter(Boolean).slice(0, 5);
         setLocations(uniqueLocations);
@@ -141,7 +175,7 @@ export default function PokemonDetailsScreen({ route, navigation }) {
   if (error || !pokemon) {
     return (
       <View style={styles.centeredContainer}>
-        <Text style={styles.errorText}>{error || 'Pokemon nao encontrado.'}</Text>
+        <Text style={styles.errorText}>{error || 'Pokémon não encontrado.'}</Text>
       </View>
     );
   }
@@ -151,7 +185,7 @@ export default function PokemonDetailsScreen({ route, navigation }) {
       const ids = await toggleFavoriteId(pokemon.id);
       setIsFavorite(ids.includes(pokemon.id));
     } catch {
-      setError('Nao foi possivel atualizar os favoritos.');
+      setError('Não foi possível atualizar os favoritos.');
     }
   }
 
@@ -214,11 +248,11 @@ export default function PokemonDetailsScreen({ route, navigation }) {
       </View>
 
       <View style={styles.infoCard}>
-        <Text style={styles.sectionTitle}>Informacoes basicas</Text>
+        <Text style={styles.sectionTitle}>Informações básicas</Text>
         <Text style={styles.infoText}>Altura: {heightMeters} m</Text>
         <Text style={styles.infoText}>Peso: {weightKg} kg</Text>
         <Text style={styles.infoText}>IMC estimado: {bmi}</Text>
-        <Text style={styles.infoText}>Experiencia base: {pokemon.baseExperience}</Text>
+        <Text style={styles.infoText}>Experiência base: {pokemon.baseExperience}</Text>
         <Text style={styles.infoText}>Ordem interna: {pokemon.order}</Text>
         <Text style={styles.infoText}>Total de status: {pokemon.totalStats}</Text>
         <Text style={styles.infoText}>Quantidade de movimentos: {pokemon.movesCount}</Text>
@@ -278,7 +312,7 @@ export default function PokemonDetailsScreen({ route, navigation }) {
 
         {locations.length > 0 && (
           <>
-            <Text style={[styles.sectionTitle, styles.marginTop]}>Localizacoes</Text>
+            <Text style={[styles.sectionTitle, styles.marginTop]}>Localizações</Text>
             {locations.map((loc, idx) => (
               <Text key={idx} style={styles.infoText}>
                 • {loc.replace('-', ' ')}
@@ -293,7 +327,7 @@ export default function PokemonDetailsScreen({ route, navigation }) {
 
         <Text style={[styles.sectionTitle, styles.marginTop]}>Cadeia evolutiva</Text>
         {evolutionChain.length === 0 ? (
-          <Text style={styles.infoText}>Cadeia evolutiva indisponivel.</Text>
+          <Text style={styles.infoText}>Cadeia evolutiva indisponível.</Text>
         ) : (
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={styles.evolutionRow}>

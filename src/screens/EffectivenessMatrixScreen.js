@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import {
-  SafeAreaView,
   View,
   ScrollView,
   Text,
   StyleSheet,
   Pressable
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 const POKEMON_TYPES = [
   'normal',
