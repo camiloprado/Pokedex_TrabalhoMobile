@@ -17,7 +17,7 @@ const REGION_OPTIONS = [
     label: 'Kanto',
     generationId: 1,
     emoji: '🏔️',
-    mapImage: 'https://raw.githubusercontent.com/PokeAPI/pokeapi-static/master/official-artwork/regions/kanto.png',
+    mapImage: 'https://s3.pokeos.com/pokeos-uploads/assets/games/maps/frlg.png?v=4',
     backgroundColor: '#FFE4B5',
     description: 'A primeira região dos Pokémons, inspirada no Japão'
   },
@@ -26,7 +26,7 @@ const REGION_OPTIONS = [
     label: 'Johto',
     generationId: 2,
     emoji: '⛩️',
-    mapImage: 'https://raw.githubusercontent.com/PokeAPI/pokeapi-static/master/official-artwork/regions/johto.png',
+    mapImage: 'https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEiClZNxxQm8t4zfv1YR-idMVZF9fG8GhHpSNYjfkzY7F2mbEZhUEDVZ7-UYPTJQ0qlgd0q3V2Ylq80aLdla_jJrn_GotZUP2FfugjGERqHn41dOgXG8UFPsR4pNwTOjCd6nOb01Lb8wVagK/s1600/Rota+28+Mapa.png',
     backgroundColor: '#E8B4E8',
     description: 'Uma região ao oeste de Kanto, conhecida por seus Pokémons raros'
   },
@@ -35,7 +35,7 @@ const REGION_OPTIONS = [
     label: 'Hoenn',
     generationId: 3,
     emoji: '🌊',
-    mapImage: 'https://raw.githubusercontent.com/PokeAPI/pokeapi-static/master/official-artwork/regions/hoenn.png',
+    mapImage: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ2n6tMaYaj0cSTgN1gZyOgTxx0Z0qWUCw1oQ&s',
     backgroundColor: '#87CEEB',
     description: 'Uma região tropical com muita água'
   },
@@ -44,7 +44,7 @@ const REGION_OPTIONS = [
     label: 'Sinnoh',
     generationId: 4,
     emoji: '⛰️',
-    mapImage: 'https://raw.githubusercontent.com/PokeAPI/pokeapi-static/master/official-artwork/regions/sinnoh.png',
+    mapImage: 'https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgr8kLYr5ylHFGFtQyhQxb7XGsQqbSSKIWS9cLypIWkk7tuNw6yqSj9crf21FMwkjzJlGvqKWcLCASnt0rfkK0R6joAPjDs6UPq8L2LVOMXfYdRcU19IbWHakdLVZu4_A8cqpbezLtTk7PW/s1600/the-original-map-from-pokemon-diamond-and-pearl.original.jpg',
     backgroundColor: '#D3D3D3',
     description: 'Uma região montanhosa com clima frio'
   },
@@ -53,7 +53,7 @@ const REGION_OPTIONS = [
     label: 'Unova',
     generationId: 5,
     emoji: '🏙️',
-    mapImage: 'https://raw.githubusercontent.com/PokeAPI/pokeapi-static/master/official-artwork/regions/unova.png',
+    mapImage: 'https://www.serebii.net/pokearth/unova.png',
     backgroundColor: '#778899',
     description: 'Uma região urbana inspirada em Nova York'
   },
@@ -62,7 +62,7 @@ const REGION_OPTIONS = [
     label: 'Kalos',
     generationId: 6,
     emoji: '🗼',
-    mapImage: 'https://raw.githubusercontent.com/PokeAPI/pokeapi-static/master/official-artwork/regions/kalos.png',
+    mapImage: 'https://www.serebii.net/pokearth/kalos.png',
     backgroundColor: '#FFB6C1',
     description: 'Uma região elegante inspirada na França'
   },
@@ -71,7 +71,7 @@ const REGION_OPTIONS = [
     label: 'Alola',
     generationId: 7,
     emoji: '🏝️',
-    mapImage: 'https://raw.githubusercontent.com/PokeAPI/pokeapi-static/master/official-artwork/regions/alola.png',
+    mapImage: 'https://www.serebii.net/pokearth/alola.png',
     backgroundColor: '#FFD700',
     description: 'Uma região arquipélago tropical'
   },
@@ -80,7 +80,7 @@ const REGION_OPTIONS = [
     label: 'Galar',
     generationId: 8,
     emoji: '🏰',
-    mapImage: 'https://raw.githubusercontent.com/PokeAPI/pokeapi-static/master/official-artwork/regions/galar.png',
+    mapImage: 'https://www.serebii.net/pokearth/galar.png',
     backgroundColor: '#98D8C8',
     description: 'Uma região inspirada no Reino Unido'
   },
@@ -89,7 +89,7 @@ const REGION_OPTIONS = [
     label: 'Paldea',
     generationId: 9,
     emoji: '🌟',
-    mapImage: 'https://raw.githubusercontent.com/PokeAPI/pokeapi-static/master/official-artwork/regions/paldea.png',
+    mapImage: 'https://i.etsystatic.com/11277520/r/il/257fda/4056154280/il_794xN.4056154280_2khx.jpg',
     backgroundColor: '#F0E68C',
     description: 'Uma região mediterrânea inspirada na Ibéria'
   }
@@ -403,6 +403,8 @@ export default function MapsScreen() {
               </Pressable>
             </View>
           )}
+        </View>
+
           <View style={styles.mapOverlay}>
             <Text style={styles.mapTitle}>
               Região de {selectedRegionData?.label}
@@ -414,7 +416,6 @@ export default function MapsScreen() {
               {selectedRegionData?.description}
             </Text>
           </View>
-        </View>
 
         <View style={styles.regionDataContainer}>
           <Text style={styles.sectionTitle}>Informações da Região</Text>
@@ -637,11 +638,11 @@ const styles = StyleSheet.create({
   mapOverlay: {
     backgroundColor: 'rgba(255, 253, 245, 0.95)',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
     marginHorizontal: 8,
-    zIndex: 5
+    marginVertical: 8,
   },
   mapTitle: {
     fontSize: 18,
