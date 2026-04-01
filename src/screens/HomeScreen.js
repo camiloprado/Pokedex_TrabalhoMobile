@@ -18,6 +18,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import PokemonCard from '../components/PokemonCard';
 import {
+  fetchAllPokemonFromAllRegions,
   fetchPokemonDetails,
   fetchPokemonByRegion,
   REGION_OPTIONS,
@@ -42,6 +43,7 @@ export default function HomeScreen({ navigation }) {
   const [favoritePokemonList, setFavoritePokemonList] = useState([]);
   const [loadingFavorites, setLoadingFavorites] = useState(false);
   const [selectedRegion, setSelectedRegion] = useState('kanto');
+  const [showAllRegions, setShowAllRegions] = useState(false);
   const [selectedTypes, setSelectedTypes] = useState(['all']);
   const [showOnlyFavorites, setShowOnlyFavorites] = useState(false);
   const [showFilters, setShowFilters] = useState(true);
@@ -90,12 +92,13 @@ export default function HomeScreen({ navigation }) {
   }, []);
 
   const trimmedSearch = useMemo(() => searchText.trim(), [searchText]);
+  const hasTypeFilter = useMemo(() => !selectedTypes.includes('all'), [selectedTypes]);
   const visiblePokemon = useMemo(() => {
     let filtered = [...activePokemonSource];
 
-    if (!selectedTypes.includes('all')) {
+    if (hasTypeFilter) {
       filtered = filtered.filter((pokemon) =>
-        selectedTypes.some((typeName) => pokemon.types.includes(typeName))
+        selectedTypes.every((typeName) => pokemon.types.includes(typeName))
       );
     }
 
@@ -106,7 +109,23 @@ export default function HomeScreen({ navigation }) {
     }
 
     return filtered;
-  }, [activePokemonSource, selectedTypes, sortMode]);
+  }, [activePokemonSource, hasTypeFilter, selectedTypes, sortMode]);
+
+  const emptyListMessage = useMemo(() => {
+    if (!hasTypeFilter) {
+      return 'Nenhum Pokémon encontrado.';
+    }
+
+    const selectedTypeLabels = selectedTypes.map(
+      (type) => `${type.charAt(0).toUpperCase()}${type.slice(1)}`
+    );
+
+    if (selectedTypeLabels.length === 1) {
+      return `Não existe Pokémon do tipo ${selectedTypeLabels[0]}.`;
+    }
+
+    return `Não existe Pokémon com os tipos ${selectedTypeLabels.join(' e ')}.`;
+  }, [hasTypeFilter, selectedTypes]);
 
   const loadFavorites = useCallback(async () => {
     try {
@@ -118,9 +137,13 @@ export default function HomeScreen({ navigation }) {
   }, []);
 
   const selectedRegionLabel = useMemo(() => {
+    if (showAllRegions) {
+      return 'Todas as regiões';
+    }
+
     const region = REGION_OPTIONS.find((item) => item.key === selectedRegion);
     return region?.label || 'Kanto';
-  }, [selectedRegion]);
+  }, [selectedRegion, showAllRegions]);
 
   const selectedTypeCount = useMemo(() => {
     return selectedTypes.includes('all') ? 0 : selectedTypes.length;
@@ -132,7 +155,9 @@ export default function HomeScreen({ navigation }) {
     try {
       setLoading(true);
       setError('');
-      const data = await fetchPokemonByRegion(selectedRegion);
+      const data = showAllRegions
+        ? await fetchAllPokemonFromAllRegions()
+        : await fetchPokemonByRegion(selectedRegion);
 
       if (requestId === listRequestIdRef.current) {
         setPokemonList(data);
@@ -147,7 +172,7 @@ export default function HomeScreen({ navigation }) {
         setIsRegionLoading(false);
       }
     }
-  }, [selectedRegion]);
+  }, [selectedRegion, showAllRegions]);
 
   const loadGlobalFavoritesPokemon = useCallback(async () => {
     const requestId = ++favoritesRequestIdRef.current;
@@ -255,7 +280,8 @@ export default function HomeScreen({ navigation }) {
       }
 
       try {
-        const results = await searchPokemonSuggestions(trimmedSearch, selectedRegion);
+        const regionScope = showAllRegions ? 'all' : selectedRegion;
+        const results = await searchPokemonSuggestions(trimmedSearch, regionScope);
 
         if (requestId === suggestionsRequestIdRef.current) {
           setSuggestions(results);
@@ -270,7 +296,7 @@ export default function HomeScreen({ navigation }) {
     };
 
     loadSuggestions();
-  }, [trimmedSearch, selectedRegion]);
+  }, [trimmedSearch, selectedRegion, showAllRegions]);
 
   function handleSelectSuggestion(pokemon) {
     setPokemonList([pokemon]);
@@ -307,10 +333,10 @@ export default function HomeScreen({ navigation }) {
     try {
       setRefreshing(true);
       setError('');
-      const [pokemonData, ids] = await Promise.all([
-        fetchPokemonByRegion(selectedRegion),
-        getFavoriteIds()
-      ]);
+      const regionSource = showAllRegions
+        ? fetchAllPokemonFromAllRegions()
+        : fetchPokemonByRegion(selectedRegion);
+      const [pokemonData, ids] = await Promise.all([regionSource, getFavoriteIds()]);
 
       if (requestId === listRequestIdRef.current) {
         setPokemonList(pokemonData);
@@ -329,6 +355,7 @@ export default function HomeScreen({ navigation }) {
 
   function clearFilters() {
     setSelectedRegion('kanto');
+    setShowAllRegions(false);
     setSelectedTypes(['all']);
     setShowOnlyFavorites(false);
     setSortMode('id');
@@ -394,7 +421,7 @@ export default function HomeScreen({ navigation }) {
           <Text style={styles.subtitle}>
             {showOnlyFavorites
               ? `Favoritos globais (${favoritePokemonList.length} Pokémon)`
-              : `Região atual: ${selectedRegionLabel} (${pokemonList.length} Pokémon)`}
+              : `${selectedRegionLabel} (${pokemonList.length} Pokémon)`}
           </Text>
         </View>
 
@@ -422,6 +449,25 @@ export default function HomeScreen({ navigation }) {
         )}
 
         <View style={styles.filterTopRow}>
+          <Pressable
+            style={[styles.allRegionsButton, showAllRegions && styles.allRegionsButtonActive]}
+            accessibilityRole="switch"
+            accessibilityState={{ checked: showAllRegions }}
+            onPress={() => {
+              const nextMode = !showAllRegions;
+              setShowAllRegions(nextMode);
+              setIsRegionLoading(true);
+              setSearchText('');
+              setSuggestions([]);
+              setShowSuggestions(false);
+            }}
+          >
+            <View style={[styles.allRegionsSwitchTrack, showAllRegions && styles.allRegionsSwitchTrackActive]}>
+              <View style={[styles.allRegionsSwitchThumb, showAllRegions && styles.allRegionsSwitchThumbActive]} />
+            </View>
+            <Text style={styles.allRegionsButtonText}>Todos os Pokémons</Text>
+          </Pressable>
+
           <Pressable
             style={styles.toggleFiltersButton}
             onPress={() => {
@@ -462,10 +508,15 @@ export default function HomeScreen({ navigation }) {
                     style={[styles.regionChip, isSelected && styles.regionChipActive]}
                     onPress={() => {
                       if (region.key === selectedRegion) {
+                        if (showAllRegions) {
+                          setShowAllRegions(false);
+                          setIsRegionLoading(true);
+                        }
                         return;
                       }
 
                       setIsRegionLoading(true);
+                      setShowAllRegions(false);
                       setSelectedRegion(region.key);
                       setSearchText('');
                       setSuggestions([]);
@@ -583,7 +634,7 @@ export default function HomeScreen({ navigation }) {
             contentContainerStyle={styles.listContent}
             showsVerticalScrollIndicator={false}
             ListEmptyComponent={
-              <Text style={styles.emptyText}>Nenhum Pokémon encontrado.</Text>
+              <Text style={styles.emptyText}>{emptyListMessage}</Text>
             }
             ListFooterComponent={renderFooter}
           />
@@ -650,8 +701,52 @@ const styles = StyleSheet.create({
   filterTopRow: {
     marginBottom: 8,
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
     alignItems: 'center'
+  },
+  allRegionsButton: {
+    flexDirection: 'row',
+    gap: 10,
+    backgroundColor: '#fffdf5',
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderWidth: 2,
+    borderColor: '#2b2d42',
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  allRegionsButtonActive: {
+    backgroundColor: '#e3fafc',
+    borderColor: '#0b7285'
+  },
+  allRegionsSwitchTrack: {
+    width: 40,
+    height: 22,
+    borderRadius: 999,
+    backgroundColor: '#adb5bd',
+    borderWidth: 1,
+    borderColor: '#868e96',
+    justifyContent: 'center',
+    paddingHorizontal: 2
+  },
+  allRegionsSwitchTrackActive: {
+    backgroundColor: '#2a9d8f',
+    borderColor: '#1f7f75'
+  },
+  allRegionsSwitchThumb: {
+    width: 16,
+    height: 16,
+    borderRadius: 999,
+    backgroundColor: '#fff'
+  },
+  allRegionsSwitchThumbActive: {
+    alignSelf: 'flex-end'
+  },
+  allRegionsButtonText: {
+    fontWeight: '700',
+    color: '#212529'
   },
   toggleFiltersButton: {
     flex: 1,

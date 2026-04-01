@@ -195,7 +195,9 @@ export async function searchPokemonSuggestions(rawQuery, regionKey = 'kanto') {
     return [];
   }
 
-  const regionPokemon = await fetchPokemonByRegion(regionKey);
+  const regionPokemon = regionKey === 'all'
+    ? await fetchAllPokemonFromAllRegions()
+    : await fetchPokemonByRegion(regionKey);
   const suggestions = regionPokemon
     .filter((pokemon) => {
       const pokemonId = String(pokemon.id);
