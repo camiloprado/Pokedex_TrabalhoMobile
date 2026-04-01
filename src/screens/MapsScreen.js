@@ -71,7 +71,7 @@ const REGION_OPTIONS = [
     label: 'Alola',
     generationId: 7,
     emoji: '🏝️',
-    mapImage: '/src/static/alola_map.png',
+    mapImage: 'https://www.serebii.net/pokearth/alola.png',
     backgroundColor: '#FFD700',
     description: 'Uma região arquipélago tropical'
   },
@@ -80,7 +80,7 @@ const REGION_OPTIONS = [
     label: 'Galar',
     generationId: 8,
     emoji: '🏰',
-    mapImage: 'https://raw.githubusercontent.com/PokeAPI/pokeapi-static/master/official-artwork/regions/galar.png',
+    mapImage: 'https://www.serebii.net/pokearth/galar.png',
     backgroundColor: '#98D8C8',
     description: 'Uma região inspirada no Reino Unido'
   },
@@ -89,7 +89,7 @@ const REGION_OPTIONS = [
     label: 'Paldea',
     generationId: 9,
     emoji: '🌟',
-    mapImage: 'https://raw.githubusercontent.com/PokeAPI/pokeapi-static/master/official-artwork/regions/paldea.png',
+    mapImage: 'https://i.etsystatic.com/11277520/r/il/257fda/4056154280/il_794xN.4056154280_2khx.jpg',
     backgroundColor: '#F0E68C',
     description: 'Uma região mediterrânea inspirada na Ibéria'
   }
