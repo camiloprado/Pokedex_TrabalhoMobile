@@ -64,9 +64,28 @@ npm install
 npm start
 ```
 
+Para uso no celular (Expo Go), prefira túnel com cache limpo:
+
+```bash
+npm run start:tunnel:clear
+```
+
 ## Scripts
 
 - npm start: inicia Expo
+- npm run start:clear: inicia Expo limpando cache do Metro
+- npm run start:tunnel: inicia Expo em modo túnel
+- npm run start:tunnel:clear: modo túnel com cache limpo (recomendado para celular)
 - npm run web: roda no navegador
 - npm run android: execução Android nativa
 - npm run ios: execução iOS nativa (macOS)
+
+## Erro no celular: "Failed to Download remote update"
+
+Se esse erro aparecer no Expo Go:
+
+1. Feche o app Expo Go no celular.
+2. No projeto, execute `npm run start:tunnel:clear`.
+3. Abra o QR novo no Expo Go.
+4. Garanta que o Expo Go esteja atualizado na loja.
+5. Se persistir, limpe o cache do Expo Go (ou reinstale o app) e tente novamente.

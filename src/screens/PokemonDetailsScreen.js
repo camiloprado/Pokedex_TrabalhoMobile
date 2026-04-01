@@ -204,8 +204,10 @@ export default function PokemonDetailsScreen({ route, navigation }) {
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView contentContainerStyle={styles.container}>
-        <View style={[styles.headerCard, { backgroundColor: getTypeColor(primaryType) }]}>
-        <Text style={[styles.number, { color: getTypeTextColor(primaryType) }]}>{formatNumber(pokemon.id)}</Text>
+        <View style={[styles.headerCard, { backgroundColor: getTypeBackgroundColor(primaryType) }]}>
+        <View style={[styles.numberBadge, { backgroundColor: getTypeColor(primaryType) }]}>
+          <Text style={[styles.number, { color: getTypeTextColor(primaryType) }]}>{formatNumber(pokemon.id)}</Text>
+        </View>
         <Pressable onPress={handleToggleFavorite} style={styles.favoriteButton}>
           <Text style={styles.favoriteButtonText}>
             {isFavorite ? '★ Favorito' : '☆ Marcar favorito'}
@@ -237,17 +239,25 @@ export default function PokemonDetailsScreen({ route, navigation }) {
             <Text style={[styles.imageModeText, showShiny && styles.imageModeTextActive]}>Shiny</Text>
           </Pressable>
         </View>
-        <Text style={styles.name}>{pokemon.name}</Text>
+        <Text style={[styles.name, { color: getTypeColor(primaryType) }]}>{pokemon.name}</Text>
         <View style={styles.typesRow}>
           {pokemon.types.map((type) => (
-            <View key={type} style={[styles.typeBadge, { backgroundColor: getTypeBackgroundColor(type) }]}>
+            <View key={type} style={[styles.typeBadge, { backgroundColor: getTypeColor(type) }]}>
               <Text style={[styles.typeText, { color: getTypeTextColor(type) }]}>{type}</Text>
             </View>
           ))}
         </View>
       </View>
 
-      <View style={styles.infoCard}>
+      <View
+        style={[
+          styles.infoCard,
+          {
+            backgroundColor: '#fffdf5',
+            borderColor: '#2b2d42'
+          }
+        ]}
+      >
         <Text style={styles.sectionTitle}>Informações básicas</Text>
         <Text style={styles.infoText}>Altura: {heightMeters} m</Text>
         <Text style={styles.infoText}>Peso: {weightKg} kg</Text>
@@ -286,7 +296,7 @@ export default function PokemonDetailsScreen({ route, navigation }) {
               {typeData.weakTo.length > 0 ? (
                 typeData.weakTo.map(type => (
                   <View key={type} style={[styles.typeTag, { backgroundColor: TYPE_COLORS_MAP[type] }]}>
-                    <Text style={styles.typeTagText}>{type}</Text>
+                    <Text style={[styles.typeTagText, { color: getTypeTextColor(type) }]}>{type}</Text>
                   </View>
                 ))
               ) : (
@@ -299,8 +309,8 @@ export default function PokemonDetailsScreen({ route, navigation }) {
             <View style={styles.typeTagsRow}>
               {typeData.resistantTo.length > 0 ? (
                 typeData.resistantTo.map(type => (
-                  <View key={type} style={[styles.typeTag, { backgroundColor: TYPE_COLORS_MAP[type], opacity: 0.7 }]}>
-                    <Text style={styles.typeTagText}>{type}</Text>
+                  <View key={type} style={[styles.typeTag, { backgroundColor: TYPE_COLORS_MAP[type] }]}>
+                    <Text style={[styles.typeTagText, { color: getTypeTextColor(type) }]}>{type}</Text>
                   </View>
                 ))
               ) : (
@@ -352,8 +362,16 @@ const styles = StyleSheet.create({
   centeredContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f5f1ee', padding: 20 },
   errorText: { color: '#c92a2a', fontWeight: '600', textAlign: 'center' },
   container: { padding: 16, backgroundColor: '#f5f1ee' },
-  headerCard: { borderRadius: 22, padding: 16, alignItems: 'center', borderWidth: 3, borderColor: '#2b2d42', shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.18, shadowRadius: 11, elevation: 8 },
-  number: { fontWeight: '700', fontSize: 14, alignSelf: 'flex-start' },
+  headerCard: { borderRadius: 22, padding: 16, alignItems: 'center', borderWidth: 3, borderColor: '#2b2d42', shadowColor: '#000', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.14, shadowRadius: 11, elevation: 8 },
+  numberBadge: {
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    borderWidth: 2,
+    borderColor: '#212529',
+    paddingHorizontal: 10,
+    paddingVertical: 4
+  },
+  number: { fontWeight: '800', fontSize: 14, textTransform: 'uppercase', letterSpacing: 0.4 },
   favoriteButton: { marginTop: 8, backgroundColor: '#fffdf5', borderRadius: 999, borderWidth: 2, borderColor: '#2b2d42', paddingHorizontal: 14, paddingVertical: 8 },
   favoriteButtonText: { fontWeight: '800', color: '#2b2d42' },
   imageContainer: { alignItems: 'center', marginVertical: 8 },
@@ -395,15 +413,15 @@ const styles = StyleSheet.create({
   imageModeTextActive: {
     color: '#fff'
   },
-  name: { fontSize: 28, fontWeight: '800', color: '#fff' },
+  name: { fontSize: 28, fontWeight: '900' },
   typesRow: { flexDirection: 'row', gap: 8, marginTop: 12 },
-  typeBadge: { borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
-  typeText: { fontWeight: '700', textTransform: 'uppercase', textShadowColor: 'rgba(0,0,0,0.2)', textShadowOffset: { width: 0, height: 1 }, textShadowRadius: 1 },
-  infoCard: { marginTop: 16, backgroundColor: '#faf8f6', borderRadius: 22, padding: 16, borderWidth: 2, borderColor: '#e0d5ce' },
+  typeBadge: { borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 2, borderColor: '#212529' },
+  typeText: { fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.4 },
+  infoCard: { marginTop: 16, borderRadius: 22, padding: 16, borderWidth: 2 },
   sectionTitle: { fontSize: 16, fontWeight: '800', color: '#343a40', marginBottom: 6 },
   marginTop: { marginTop: 14 },
   infoText: { fontSize: 15, color: '#495057', marginBottom: 4 },
-  statRow: { borderBottomWidth: 1, borderBottomColor: '#f1f3f5', paddingVertical: 6 },
+  statRow: { borderBottomWidth: 1, borderBottomColor: '#e9ecef', paddingVertical: 6 },
   statLabelRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
   statName: { fontSize: 14, color: '#868e96', fontWeight: '700' },
   statValue: { fontSize: 14, color: '#212529', fontWeight: '800' },
@@ -413,8 +431,8 @@ const styles = StyleSheet.create({
   effectivenessSection: { marginBottom: 8 },
   effectivenessLabel: { fontSize: 13, fontWeight: '700', color: '#495057', marginBottom: 6 },
   typeTagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  typeTag: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5 },
-  typeTagText: { color: '#fff', fontWeight: '700', fontSize: 11 },
+  typeTag: { borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1, borderColor: 'rgba(0,0,0,0.2)' },
+  typeTagText: { fontWeight: '800', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.3 },
   noneText: { fontSize: 13, color: '#868e96', fontStyle: 'italic' },
   movesButton: { marginTop: 14, backgroundColor: '#cf1124', borderRadius: 12, borderWidth: 2, borderColor: '#2b2d42', paddingVertical: 12, alignItems: 'center' },
   movesButtonText: { color: '#fff', fontWeight: '800', fontSize: 14 },
