@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   LayoutAnimation,
   Platform,
@@ -58,7 +59,13 @@ export default function HomeScreen({ navigation }) {
   );
 
   useEffect(() => {
-    if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+    const isNewArchitectureEnabled = global?.nativeFabricUIManager != null;
+
+    if (
+      Platform.OS === 'android' &&
+      !isNewArchitectureEnabled &&
+      typeof UIManager.setLayoutAnimationEnabledExperimental === 'function'
+    ) {
       UIManager.setLayoutAnimationEnabledExperimental(true);
     }
   }, []);
@@ -114,6 +121,10 @@ export default function HomeScreen({ navigation }) {
     const region = REGION_OPTIONS.find((item) => item.key === selectedRegion);
     return region?.label || 'Kanto';
   }, [selectedRegion]);
+
+  const selectedTypeCount = useMemo(() => {
+    return selectedTypes.includes('all') ? 0 : selectedTypes.length;
+  }, [selectedTypes]);
 
   const loadInitialPokemon = useCallback(async () => {
     const requestId = ++listRequestIdRef.current;
@@ -334,14 +345,19 @@ export default function HomeScreen({ navigation }) {
     }
 
     setSelectedTypes((prev) => {
-      const withoutAll = prev.filter((item) => item !== 'all');
+      const activeTypes = prev.filter((item) => item !== 'all');
 
-      if (withoutAll.includes(typeName)) {
-        const next = withoutAll.filter((item) => item !== typeName);
-        return next.length === 0 ? ['all'] : next;
+      if (activeTypes.includes(typeName)) {
+        const nextTypes = activeTypes.filter((item) => item !== typeName);
+        return nextTypes.length > 0 ? nextTypes : ['all'];
       }
 
-      return [...withoutAll, typeName];
+      if (activeTypes.length >= 2) {
+        Alert.alert('Limite de tipos', 'Voce pode selecionar no maximo 2 tipos por vez.');
+        return prev;
+      }
+
+      return [...activeTypes, typeName];
     });
   }
 
@@ -508,6 +524,10 @@ export default function HomeScreen({ navigation }) {
               style={{ flexShrink: 0 }}
               nestedScrollEnabled={true}
             >
+              <View style={styles.typeCounterPill}>
+                <Text style={styles.typeCounterText}>Tipos: {selectedTypeCount}/2</Text>
+              </View>
+
               {POKEMON_TYPES.map((typeName) => {
                 const isSelected = selectedTypes.includes(typeName);
                 const bgColor = typeName === 'all' ? '#495057' : getTypeColor(typeName);
@@ -738,6 +758,21 @@ const styles = StyleSheet.create({
     gap: 8,
     minHeight: 60,
     alignItems: 'center'
+  },
+  typeCounterPill: {
+    backgroundColor: '#2b2d42',
+    borderRadius: 999,
+    borderWidth: 2,
+    borderColor: '#101524',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    justifyContent: 'center',
+    alignItems: 'center'
+  },
+  typeCounterText: {
+    color: '#fff',
+    fontWeight: '800',
+    fontSize: 12
   },
   typeFilterChip: {
     paddingHorizontal: 14,
