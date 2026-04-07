@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ActivityIndicator,
   Alert,
+  useWindowDimensions,
   FlatList,
   LayoutAnimation,
   Platform,
@@ -34,6 +35,8 @@ const SORT_MODES = [
 ];
 
 export default function HomeScreen({ navigation }) {
+  const { width } = useWindowDimensions();
+  const isCompactFilterLayout = width < 390;
   const [pokemonList, setPokemonList] = useState([]);
   const [searchText, setSearchText] = useState('');
   const [loading, setLoading] = useState(false);
@@ -450,7 +453,11 @@ export default function HomeScreen({ navigation }) {
 
         <View style={styles.filterTopRow}>
           <Pressable
-            style={[styles.allRegionsButton, showAllRegions && styles.allRegionsButtonActive]}
+            style={[
+              styles.allRegionsButton,
+              isCompactFilterLayout && styles.filterTopButtonCompact,
+              showAllRegions && styles.allRegionsButtonActive
+            ]}
             accessibilityRole="switch"
             accessibilityState={{ checked: showAllRegions }}
             onPress={() => {
@@ -469,7 +476,7 @@ export default function HomeScreen({ navigation }) {
           </Pressable>
 
           <Pressable
-            style={styles.toggleFiltersButton}
+            style={[styles.toggleFiltersButton, isCompactFilterLayout && styles.filterTopButtonCompact]}
             onPress={() => {
               animateFiltersVisibility(!showFilters);
               lastScrollY.current = 0;
@@ -478,7 +485,10 @@ export default function HomeScreen({ navigation }) {
             <Text style={styles.toggleFiltersButtonText}>{showFilters ? 'Ocultar filtros' : 'Mostrar filtros'}</Text>
           </Pressable>
 
-          <Pressable style={styles.resetButton} onPress={clearFilters}>
+          <Pressable
+            style={[styles.resetButton, isCompactFilterLayout && styles.filterTopButtonCompact]}
+            onPress={clearFilters}
+          >
             <Text style={styles.resetButtonText}>Limpar filtros</Text>
           </Pressable>
         </View>
@@ -492,42 +502,44 @@ export default function HomeScreen({ navigation }) {
 
         {showFilters && (
           <>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.regionContainer}
-              style={{ flexShrink: 0 }}
-              nestedScrollEnabled={true}
-            >
-              {REGION_OPTIONS.map((region) => {
-                const isSelected = selectedRegion === region.key;
+            {!showAllRegions && (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.regionContainer}
+                style={{ flexShrink: 0 }}
+                nestedScrollEnabled={true}
+              >
+                {REGION_OPTIONS.map((region) => {
+                  const isSelected = selectedRegion === region.key;
 
-                return (
-                  <Pressable
-                    key={region.key}
-                    style={[styles.regionChip, isSelected && styles.regionChipActive]}
-                    onPress={() => {
-                      if (region.key === selectedRegion) {
-                        if (showAllRegions) {
-                          setShowAllRegions(false);
-                          setIsRegionLoading(true);
+                  return (
+                    <Pressable
+                      key={region.key}
+                      style={[styles.regionChip, isSelected && styles.regionChipActive]}
+                      onPress={() => {
+                        if (region.key === selectedRegion) {
+                          if (showAllRegions) {
+                            setShowAllRegions(false);
+                            setIsRegionLoading(true);
+                          }
+                          return;
                         }
-                        return;
-                      }
 
-                      setIsRegionLoading(true);
-                      setShowAllRegions(false);
-                      setSelectedRegion(region.key);
-                      setSearchText('');
-                      setSuggestions([]);
-                      setShowSuggestions(false);
-                    }}
-                  >
-                    <Text style={[styles.regionText, isSelected && styles.regionTextActive]}>{region.label}</Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
+                        setIsRegionLoading(true);
+                        setShowAllRegions(false);
+                        setSelectedRegion(region.key);
+                        setSearchText('');
+                        setSuggestions([]);
+                        setShowSuggestions(false);
+                      }}
+                    >
+                      <Text style={[styles.regionText, isSelected && styles.regionTextActive]}>{region.label}</Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            )}
 
             <Pressable
               style={[styles.favoriteToggle, showOnlyFavorites && styles.favoriteToggleActive]}
@@ -703,11 +715,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    alignItems: 'center'
+    alignItems: 'stretch'
+  },
+  filterTopButtonCompact: {
+    flexBasis: '100%'
   },
   allRegionsButton: {
     flexDirection: 'row',
     gap: 10,
+    flexGrow: 1,
+    flexBasis: 150,
+    minHeight: 44,
     backgroundColor: '#fffdf5',
     borderRadius: 999,
     paddingHorizontal: 14,
@@ -745,11 +763,15 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-end'
   },
   allRegionsButtonText: {
+    flexShrink: 1,
+    textAlign: 'center',
     fontWeight: '700',
     color: '#212529'
   },
   toggleFiltersButton: {
-    flex: 1,
+    flexGrow: 1,
+    flexBasis: 160,
+    minHeight: 44,
     backgroundColor: '#fffdf5',
     borderRadius: 999,
     paddingHorizontal: 14,
@@ -760,6 +782,7 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   toggleFiltersButtonText: {
+    textAlign: 'center',
     fontWeight: '700',
     color: '#212529'
   },
@@ -809,6 +832,9 @@ const styles = StyleSheet.create({
     color: '#212529'
   },
   resetButton: {
+    flexGrow: 1,
+    flexBasis: 140,
+    minHeight: 44,
     backgroundColor: '#2b2d42',
     borderRadius: 999,
     paddingHorizontal: 14,
@@ -819,6 +845,7 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   resetButtonText: {
+    textAlign: 'center',
     color: '#fff',
     fontWeight: '700'
   },
