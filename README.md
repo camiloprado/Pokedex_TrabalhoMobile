@@ -105,6 +105,7 @@ Para o ambiente de desenvolvimento, é necessário:
    > ```
 
 4. **Abra o aplicativo**
+
 Conecte na mesma rede Wi-Fi que o seu PC e escaneie o código QR exibido no console do comando utilizando o Expo Go (Android) ou seu aplicativo nativo de Câmera (iOS).
 
 ## Solução de Problemas Comuns
