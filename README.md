@@ -14,7 +14,6 @@ Este projeto é uma aplicação mobile construída em React Native com a utiliza
 <img src="./assets/Time.jpeg" width="220" style="margin-right: 10px;">
 <img src="./assets/Detalhes.jpeg" width="220" style="margin-right: 10px;">
 <img src="./assets/Mapa.jpeg" width="220" style="margin-right: 10px;">
-<img src="./assets/Matriz.jpeg" width="220" style="margin-right: 10px;">
 
 </p>
 
