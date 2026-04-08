@@ -11,8 +11,8 @@ Este projeto é uma aplicação mobile construída em React Native com a utiliza
 <p align="center">
 
 <img src="./assets/Home.jpeg" width="220" style="margin-right: 10px;">
-<img src="./assets/Times.jpeg" width="220" style="margin-right: 10px;">
-<img src="./assets/Efetividade.jpeg" width="220" style="margin-right: 10px;">
+<img src="./assets/Time.jpeg" width="220" style="margin-right: 10px;">
+<img src="./assets/Detalhes.jpeg" width="220" style="margin-right: 10px;">
 <img src="./assets/Mapa.jpeg" width="220" style="margin-right: 10px;">
 <img src="./assets/Matriz.jpeg" width="220" style="margin-right: 10px;">
 
@@ -85,7 +85,7 @@ Para o ambiente de desenvolvimento, é necessário:
 
 1. **Faça o clone e entre na raiz do repositório**
    ```bash
-   git clone https://github.com/SEU_USUARIO/NOME_DO_REPOSITORIO.git
+   git clone https://github.com/camiloprado/Pokedex_TrabalhoMobile.git
    cd Pokedex_TrabalhoMobile
    ```
 
