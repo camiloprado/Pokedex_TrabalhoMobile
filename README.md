@@ -105,8 +105,7 @@ Para o ambiente de desenvolvimento, é necessário:
    > ```
 
 4. **Abra o aplicativo**
-   - **No smartphone Físico:** Conecte na mesa rede Wi-Fi que o seu PC e escaneie o código QR exibido no console do comando utilizando o Expo Go (Android) ou seu aplicativo nativo de Câmera (iOS).
-   - **Em emuladores Físicos:** Assim que o terminal de Start gerar as opções, pressione a tecla **`a`** para abrir no emulador de Android conectado, ou **`i`** para abrir do iOS Simulator.
+Conecte na mesma rede Wi-Fi que o seu PC e escaneie o código QR exibido no console do comando utilizando o Expo Go (Android) ou seu aplicativo nativo de Câmera (iOS).
 
 ## Solução de Problemas Comuns
 
