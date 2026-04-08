@@ -35,15 +35,12 @@ Este projeto é uma aplicação mobile construída em React Native com a utiliza
 
 ## Diagrama de Arquitetura
 
-```mermaid
-graph TD
-    A[App / UI Components] --> B[React Navigation\nScreens]
-    B --> C[Pokemon Services\npokeapi.js]
-    B --> D[Favorites Services\nfavoritesStorage.js]
-    C --> E((PokeAPI\nREST endpoint))
-    C -.-> F[(Memory Cache\nMap Object)]
-    D --> G[(AsyncStorage\nLocal Device)]
-```
+<p align="center">
+
+<img src="./assets/Diagrama.png" width="600" style="margin-right: 10px;">
+
+</p>
+
 ## Documentação da API e Endpoints
 
 Toda a aplicação consome os dados vitais de Pokémon da biblioteca global e gratuita [PokeAPI](https://pokeapi.co/). Foram integrados os seguintes endpoints diretos de requisição (veja toda a lógica em `src/services/pokeapi.js`):
